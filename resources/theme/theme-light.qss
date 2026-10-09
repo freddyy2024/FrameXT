@@ -14,6 +14,11 @@ QMainWindow, #centralArea {
     background: #F5F6F8;
 }
 
+/* 窗口最外侧 1px 浅灰边框（frameless 窗口的视觉边界） */
+#centralArea {
+    border: 1px solid #D8DCE2;
+}
+
 QWidget {
     color: #1F2329;
     font-size: 12px;
@@ -113,10 +118,10 @@ QToolButton#captionClose:pressed {
     background: transparent;
 }
 
-/* 预览画布空态：虚线引导区 */
+/* 预览画布：与其他面板卡片一致的实线边框 */
 #previewCanvas {
     background: #FFFFFF;
-    border: 1px dashed #D8DCE2;
+    border: 1px solid #E4E7EC;
     border-radius: 5px;
 }
 

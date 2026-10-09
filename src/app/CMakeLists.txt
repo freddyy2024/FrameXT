@@ -15,7 +15,7 @@ target_link_libraries(framext PRIVATE
     Qt6::Widgets
 )
 
-# 自绘标题栏的原生命中测试 / 窗口样式调整
+# 窗口样式调整（user32）与系统圆角/阴影（dwmapi）
 if(WIN32)
-    target_link_libraries(framext PRIVATE user32)
+    target_link_libraries(framext PRIVATE user32 dwmapi)
 endif()
