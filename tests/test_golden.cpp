@@ -69,7 +69,8 @@ QImage renderGolden(const QString &templateId, const QSize &photoSize)
 
     TemplateState state;
     state.templateId = templateId;
-    state.elements = defaultSpec().elements;
+    // 按模板取 spec：blur 模板为白字（与产品视觉一致），bottom/around 黑字
+    state.elements = defaultSpec(templateId).elements;
 
     RenderRequest req;
     req.photoId = QUuid::createUuid();
@@ -98,6 +99,13 @@ void checkGolden(const QString &templateId, const QSize &photoSize)
     const QString goldenPath = goldenDir() + QLatin1Char('/') + baseName;
 
     if (!QFileInfo::exists(goldenPath)) {
+        // FXT_GOLDEN_STRICT=1（CI/回归跑）：基准缺失直接失败，禁止静默
+        // 生成掩盖"基准被误删/未拉取"的假绿
+        if (qEnvironmentVariableIsSet("FXT_GOLDEN_STRICT")) {
+            QFAIL(qPrintable(QStringLiteral("FXT_GOLDEN_STRICT：基准图缺失 %1，"
+                                            "拒绝静默生成（先人工目检入库）")
+                                 .arg(baseName)));
+        }
         QVERIFY(QDir().mkpath(goldenDir()));
         QVERIFY(actual.save(goldenPath));
         QSKIP(qPrintable(QStringLiteral("基准图首次生成：%1（请人工目检后入库）")
@@ -202,6 +210,9 @@ private slots:
     void goldenAroundPortrait() const;
     void goldenBlurLandscape() const;
     void goldenBlurPortrait() const;
+    void goldenBottomSquare() const;
+    void goldenAroundSquare() const;
+    void goldenBlurSquare() const;
 };
 
 void TestGolden::goldenBottomLandscape() const
@@ -227,6 +238,18 @@ void TestGolden::goldenBlurLandscape() const
 void TestGolden::goldenBlurPortrait() const
 {
     checkGolden(QStringLiteral("blur"), {600, 900});
+}
+void TestGolden::goldenBottomSquare() const
+{
+    checkGolden(QStringLiteral("bottom"), {800, 800});
+}
+void TestGolden::goldenAroundSquare() const
+{
+    checkGolden(QStringLiteral("around"), {800, 800});
+}
+void TestGolden::goldenBlurSquare() const
+{
+    checkGolden(QStringLiteral("blur"), {800, 800});
 }
 
 QTEST_MAIN(TestGolden)

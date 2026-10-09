@@ -31,6 +31,15 @@ QString uuidToString(const QUuid &id)
     return id.toString(QUuid::WithoutBraces);
 }
 
+// 枚举反序列化：越界值回落默认（手改 JSON/损坏文件不产出无效枚举，
+// 避免 measure/painter 的 switch 静默跳过造成数据污染）
+template <typename EnumT>
+EnumT enumFromJson(const QJsonValue &v, EnumT fallback, int maxValid)
+{
+    const int raw = v.toInt(int(fallback));
+    return (raw >= 0 && raw <= maxValid) ? static_cast<EnumT>(raw) : fallback;
+}
+
 } // namespace
 
 QJsonObject toJson(const Element &e)
@@ -63,10 +72,12 @@ Element elementFromJson(const QJsonObject &o)
     e.id = QUuid(o.value("id").toString());
     if (e.id.isNull())
         e.id = QUuid::createUuid();
-    e.kind = static_cast<ElementKind>(o.value("kind").toInt(int(ElementKind::Text)));
+    e.kind = enumFromJson(o.value("kind"), ElementKind::Text,
+                          int(ElementKind::Free));
     e.fieldKey = o.value("fieldKey").toString();
     e.literal = o.value("literal").toString();
-    e.anchor = static_cast<Anchor>(o.value("anchor").toInt(int(Anchor::BottomLeft)));
+    e.anchor = enumFromJson(o.value("anchor"), Anchor::BottomLeft,
+                            int(Anchor::LogoLineStart));
     e.offset = QPointF(o.value("offsetX").toDouble(0.0),
                        o.value("offsetY").toDouble(0.0));
     const QJsonObject s = o.value("style").toObject();
@@ -87,6 +98,7 @@ Element elementFromJson(const QJsonObject &o)
 QJsonObject toJson(const TemplateState &t)
 {
     QJsonObject o;
+    o["schemaVersion"] = 1;   // §6：JSON 均带 schemaVersion（M5 模板 JSON 演进基线）
     o["templateId"] = t.templateId;
     o["params"] = QJsonObject::fromVariantMap(t.templateParams);
     QJsonArray arr;

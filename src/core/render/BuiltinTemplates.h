@@ -29,7 +29,10 @@ struct BuiltinSpec
     QList<LayoutRow> rows;
 };
 
-BuiltinSpec defaultSpec();
+// 默认模板规格：元素与行组一次成对生成（导入照片初始化 TemplateState 用）。
+// templateId 决定文字配色：blur 模板为白字（模糊背景上黑字不可读，§2.4
+// "底部白字水印区"），bottom/around 为黑字 + 浅灰分隔线（对齐原版视觉）。
+BuiltinSpec defaultSpec(const QString &templateId = QStringLiteral("bottom"));
 
 // 从既有元素列表按 fieldKey 约定重建行组（三模板同构）：
 //   第 1 行(60%) = make + brandLogo + divider + paramString

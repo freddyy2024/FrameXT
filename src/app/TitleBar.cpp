@@ -1,5 +1,6 @@
 #include "TitleBar.h"
 
+#include <QApplication>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMenu>
@@ -113,14 +114,33 @@ void TitleBar::paintEvent(QPaintEvent *)
 
 void TitleBar::mousePressEvent(QMouseEvent *event)
 {
-    // 空白处按下 → 系统拖拽移动窗口（Qt 6 无边框标准做法；
-    // 按钮/语言菜单区域由子控件自行处理，不会走到这里）
+    // 空白处按下仅记录起点，拖动阈值达成（mouseMoveEvent）才启动系统移动：
+    // startSystemMove 会进入系统模态循环并吞掉后续鼠标事件，若在 press
+    // 立即调用，双击的第二次 press 不再派发 → 双击最大化永远失效。
     if (event->button() == Qt::LeftButton
-        && !isInteractiveAt(event->position().toPoint())
+        && !isInteractiveAt(event->position().toPoint()))
+        m_pressPos = event->globalPosition().toPoint();
+    else
+        m_pressPos = QPoint();
+    QWidget::mousePressEvent(event);
+}
+
+void TitleBar::mouseMoveEvent(QMouseEvent *event)
+{
+    if (!m_pressPos.isNull() && (event->buttons() & Qt::LeftButton)
+        && (event->globalPosition().toPoint() - m_pressPos).manhattanLength()
+               > QApplication::startDragDistance()
         && window() && window()->windowHandle()) {
+        m_pressPos = QPoint();
         window()->windowHandle()->startSystemMove();
     }
-    QWidget::mousePressEvent(event);
+    QWidget::mouseMoveEvent(event);
+}
+
+void TitleBar::mouseReleaseEvent(QMouseEvent *event)
+{
+    m_pressPos = QPoint();
+    QWidget::mouseReleaseEvent(event);
 }
 
 void TitleBar::mouseDoubleClickEvent(QMouseEvent *event)
@@ -147,7 +167,8 @@ QPixmap TitleBar::logoPixmap() const
         return scaled;
     }
 
-    // 资源缺失时的回退：135° 渐变圆角方块 + 首字母（04-UI设计.md §1）
+    // 资源缺失时的回退：135° 渐变圆角方块 + 首字母（04-UI设计.md §1）。
+    // 以物理像素尺寸绘制并标记 dpr——否则高 DPI 下只画出左上 1/4 区域
     QPixmap fallback(pixelSize);
     fallback.fill(Qt::transparent);
     QPainter painter(&fallback);
@@ -157,14 +178,16 @@ QPixmap TitleBar::logoPixmap() const
     gradient.setColorAt(1.0, QColor(QStringLiteral("#5B8DEF")));
     painter.setPen(Qt::NoPen);
     painter.setBrush(gradient);
-    painter.drawRoundedRect(0, 0, kLogoSize, kLogoSize, 5, 5);
+    painter.drawRoundedRect(0, 0, pixelSize.width(), pixelSize.height(), 5, 5);
     painter.setPen(Qt::white);
     QFont font = this->font();
     font.setBold(true);
-    font.setPixelSize(14);
+    font.setPixelSize(qRound(14 * dpr));
     painter.setFont(font);
-    painter.drawText(QRect(0, 0, kLogoSize, kLogoSize), Qt::AlignCenter,
-                     QStringLiteral("F"));
+    painter.drawText(QRect(0, 0, pixelSize.width(), pixelSize.height()),
+                     Qt::AlignCenter, QStringLiteral("F"));
+    painter.end();
+    fallback.setDevicePixelRatio(dpr);
     return fallback;
 }
 

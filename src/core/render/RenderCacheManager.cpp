@@ -66,4 +66,22 @@ void RenderCacheManager::evictLocked()
     }
 }
 
+qint64 RenderCacheManager::totalBytes() const
+{
+    const QMutexLocker lock(&m_mutex);
+    return m_totalBytes;
+}
+
+int RenderCacheManager::hits() const
+{
+    const QMutexLocker lock(&m_mutex);
+    return m_hits;
+}
+
+int RenderCacheManager::misses() const
+{
+    const QMutexLocker lock(&m_mutex);
+    return m_misses;
+}
+
 } // namespace fxt

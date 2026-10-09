@@ -31,7 +31,8 @@ struct LayoutRow
 struct ElementLayout
 {
     QRectF pxRect;         // 画布像素矩形
-    QString resolvedText;  // 解析后的显示文本（Painter 直接使用）
+    QString resolvedText;  // 解析后的显示文本（Painter 直接使用；行溢出时已是省略文本）
+    qreal fontScale = 1.0; // 行溢出收缩系数（Painter 与布局度量同字号）
 };
 
 // S5 布局引擎（02-技术设计 §4.3）：
@@ -48,9 +49,11 @@ public:
                                                const LogoResolver &logoResolver);
 
 private:
-    // 元素显示尺寸度量（文本宽高 / Logo 等比 / 分隔线固定比例）
+    // 元素显示尺寸度量（文本宽高 / Logo 等比 / 分隔线固定比例）；
+    // fontScaleFactor：行溢出收缩系数（与 ElementPainter 绘制字号同源）
     static QSizeF measure(const Element &element, const QString &text,
-                          const QImage &logo, qreal canvasWidth, qreal rowHeight);
+                          const QImage &logo, qreal canvasWidth, qreal rowHeight,
+                          qreal fontScaleFactor = 1.0);
 };
 
 } // namespace fxt

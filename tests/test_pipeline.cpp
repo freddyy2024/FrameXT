@@ -1,5 +1,6 @@
 // M1.5 RenderPipeline + RenderCacheManager 单测：
 // 端到端出图、改文字命中背景缓存（<80ms 指标根基）、LRU 容量淘汰
+#include <QImage>
 #include <QImageWriter>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -53,14 +54,15 @@ LogoResolver stubLogoResolver()
 }
 
 RenderRequest makeRequest(const QUuid &photoId, const QString &path,
-                          const TemplateState &state)
+                          const TemplateState &state,
+                          RenderPurpose purpose = RenderPurpose::Preview)
 {
     RenderRequest req;
     req.photoId = photoId;
     req.filePath = path;
     req.templateState = state;
     req.scale = 1.0;
-    req.purpose = RenderPurpose::Export;
+    req.purpose = purpose;
     return req;
 }
 
@@ -75,6 +77,10 @@ private slots:
     void textChangeHitsBackdropCache() const;
     void lruEviction() const;
     void decodeFailurePropagates() const;
+    void unknownTemplateFails() const;
+    void allFieldsEmptyStillRenders() const;
+    void exportDoesNotPollutePreviewCache() const;
+    void cacheHitNotPollutedByComposite() const;
 };
 
 void TestPipeline::endToEndBottom() const
@@ -91,9 +97,9 @@ void TestPipeline::endToEndBottom() const
     const auto result = RenderPipeline::run(makeRequest(QUuid::createUuid(), path, state),
                                             stubResolver(), stubLogoResolver(), &cache);
     QVERIFY2(result.ok, qPrintable(result.error));
-    // 画布 = H + 0.09W = 480 + 57.6 ≈ 538
+    // 画布 = H + 0.09W = 480 + 57.6 → qRound = 538（精确值，防回归漂移）
     QCOMPARE(result.image.width(), 640);
-    QCOMPARE(qRound(qreal(result.image.height()) / 10.0), 54);
+    QCOMPARE(result.image.height(), 538);
     QVERIFY(result.image.pixelColor(5, 5) != QColor(Qt::white));   // 原图已合成
 
     // 信息带应含绘制的黑色文字（品牌文本区域存在非白像素）
@@ -170,6 +176,104 @@ void TestPipeline::decodeFailurePropagates() const
                                             nullptr);
     QVERIFY(!result.ok);
     QVERIFY(!result.error.isEmpty());
+}
+
+void TestPipeline::unknownTemplateFails() const
+{
+    // 未知模板 id（M5 用户模板/拼写错误场景）必须显式报错，不得产出空白废图
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = writeTestJpeg(dir, {640, 480});
+
+    TemplateState state;
+    state.templateId = QStringLiteral("nonexistent-template");
+
+    const auto result = RenderPipeline::run(makeRequest(QUuid::createUuid(), path, state),
+                                            stubResolver(), stubLogoResolver(), nullptr);
+    QVERIFY2(!result.ok, "未知模板必须失败而非静默成功");
+    QVERIFY2(!result.error.isEmpty(), "失败必须携带可提示的错误信息");
+}
+
+void TestPipeline::allFieldsEmptyStillRenders() const
+{
+    // 无 Exif 网图/截图场景：全字段缺失 + Logo 缺图 → 正常出图（白带、无文字），
+    // 行组全收紧后不得崩溃或空指针
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = writeTestJpeg(dir, {640, 480});
+
+    TemplateState state;
+    state.templateId = QStringLiteral("bottom");
+    state.elements = defaultSpec().elements;
+
+    const auto emptyResolver = [](const QString &) { return QString(); };
+    const auto emptyLogoResolver = [](const QString &) { return QImage(); };
+
+    const auto result = RenderPipeline::run(makeRequest(QUuid::createUuid(), path, state),
+                                            emptyResolver, emptyLogoResolver, nullptr);
+    QVERIFY2(result.ok, qPrintable(result.error));
+    QCOMPARE(result.image.width(), 640);
+    QCOMPARE(result.image.height(), 538);
+    // 信息带全空（行组全收紧，无文字/Logo 残留）
+    bool foundNonWhite = false;
+    for (int y = 481; y < result.image.height() && !foundNonWhite; ++y)
+        for (int x = 0; x < result.image.width(); ++x)
+            if (result.image.pixel(x, y) != QColor(Qt::white).rgba()) {
+                foundNonWhite = true;
+                break;
+            }
+    QVERIFY2(!foundNonWhite, "全字段缺失时信息带应为纯白（无残留元素）");
+}
+
+void TestPipeline::exportDoesNotPollutePreviewCache() const
+{
+    // §4.2：缓存为预览防抖服务；导出底图（全尺寸）不写入共享缓存
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = writeTestJpeg(dir, {640, 480});
+
+    TemplateState state;
+    state.templateId = QStringLiteral("bottom");
+    state.elements = defaultSpec().elements;
+
+    RenderCacheManager cache;
+    const auto r1 = RenderPipeline::run(makeRequest(QUuid::createUuid(), path, state,
+                                                    RenderPurpose::Export),
+                                        stubResolver(), stubLogoResolver(), &cache);
+    QVERIFY(r1.ok);
+    const auto r2 = RenderPipeline::run(makeRequest(QUuid::createUuid(), path, state,
+                                                    RenderPurpose::Export),
+                                        stubResolver(), stubLogoResolver(), &cache);
+    QVERIFY(r2.ok);
+    QCOMPARE(cache.totalBytes(), 0);   // 导出两连渲，缓存仍为空
+}
+
+void TestPipeline::cacheHitNotPollutedByComposite() const
+{
+    // S4 合成直接画在缓存返回的共享 QImage 上——依赖 QPainter detach 保护
+    // 缓存条目。带 alpha 的照片若 detach 失效会被"烤进"缓存背景（不透明
+    // JPEG 探测不到），此用例将其钉死：第二次（命中缓存）渲染必须与第一次一致
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = dir.filePath("alpha_photo.png");
+    QImage photo(320, 240, QImage::Format_ARGB32);
+    photo.fill(QColor(80, 160, 200, 200));   // 半透明：污染必现像素差
+    QVERIFY(photo.save(path));
+
+    TemplateState state;
+    state.templateId = QStringLiteral("bottom");
+    state.elements = defaultSpec().elements;
+    const QUuid photoId = QUuid::createUuid();
+
+    RenderCacheManager cache;
+    const auto r1 = RenderPipeline::run(makeRequest(photoId, path, state),
+                                        stubResolver(), stubLogoResolver(), &cache);
+    QVERIFY(r1.ok);
+    const auto r2 = RenderPipeline::run(makeRequest(photoId, path, state),
+                                        stubResolver(), stubLogoResolver(), &cache);
+    QVERIFY(r2.ok);
+    QVERIFY2(cache.hits() >= 1, "第二次渲染应命中背景缓存");
+    QCOMPARE(r1.image, r2.image);   // 缓存被污染（双重合成）则两次必然不同
 }
 
 QTEST_MAIN(TestPipeline)

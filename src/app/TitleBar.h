@@ -6,8 +6,8 @@ class QLabel;
 class QToolButton;
 
 // 自绘标题栏（04-UI设计.md §2.1）：品牌 Logo + 产品名 + 语言切换 + 窗口三按钮。
-// 拖拽移动 / 双击最大化 / Win Snap 贴靠由 MainWindow 的原生命中测试（HTCAPTION）实现，
-// 本类只负责视觉呈现与按钮、语言菜单。
+// 拖拽移动 = press 记录起点、move 超拖动阈值后 startSystemMove（延迟启动，
+// 保住双击事件派发）；双击最大化在本类处理；HTCAPTION 原生路径 Qt 6.11 不可用。
 class TitleBar : public QWidget
 {
     Q_OBJECT
@@ -31,6 +31,8 @@ signals:
 protected:
     void paintEvent(QPaintEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
 
 private:
@@ -45,4 +47,5 @@ private:
     QToolButton *m_minButton = nullptr;
     QToolButton *m_maxButton = nullptr;
     QToolButton *m_closeButton = nullptr;
+    QPoint m_pressPos;   // 拖动阈值检测起点（null = 未在拖动待命态）
 };

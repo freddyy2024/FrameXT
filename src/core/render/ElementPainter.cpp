@@ -22,7 +22,8 @@ void paint(QPainter *painter, const Element &element, const ElementLayout &layou
     case ElementKind::Free: {
         if (layout.resolvedText.isEmpty())
             break;
-        painter->setFont(FontKit::create(element.style, canvasWidth));
+        // 字号含布局层行溢出收缩系数（与度量同源，预览/导出一致）
+        painter->setFont(FontKit::create(element.style, canvasWidth, layout.fontScale));
         painter->setPen(QPen(element.style.color));
         painter->drawText(layout.pxRect, Qt::AlignLeft | Qt::AlignVCenter,
                           layout.resolvedText);

@@ -10,6 +10,9 @@ constexpr qreal kFontScaleBrand = 0.028;
 constexpr qreal kFontScaleParams = 0.024;
 constexpr qreal kFontScaleSecondary = 0.020;
 constexpr qreal kLogoScale = 0.5;   // Logo 高 = 0.5 × 行高
+// 分隔线浅灰（对齐原版视觉；黑字模板与白字模板各一档）
+const QColor kDividerDark = QColor(QStringLiteral("#C8C8C8"));
+const QColor kDividerLight = QColor(255, 255, 255, 190);
 } // namespace
 
 QList<LayoutRow> defaultRows(const QList<Element> &elements)
@@ -43,9 +46,14 @@ QList<LayoutRow> defaultRows(const QList<Element> &elements)
     return rows;
 }
 
-BuiltinSpec defaultSpec()
+BuiltinSpec defaultSpec(const QString &templateId)
 {
     BuiltinSpec spec;
+
+    // blur 模板在模糊背景上直接绘白字（原版 createImageWithTextForBlurBackgroud
+    // 同源）；bottom/around 黑字压白底/白边
+    const bool onBlur = (templateId == QLatin1String("blur"));
+    const QColor textColor = onBlur ? QColor(Qt::white) : QColor(Qt::black);
 
     Element make;
     make.id = QUuid::createUuid();
@@ -53,6 +61,7 @@ BuiltinSpec defaultSpec()
     make.fieldKey = QString::fromLatin1(kMake);
     make.style.fontScale = kFontScaleBrand;
     make.style.bold = true;
+    make.style.color = textColor;
 
     Element logo;
     logo.id = QUuid::createUuid();
@@ -64,24 +73,28 @@ BuiltinSpec defaultSpec()
     divider.id = QUuid::createUuid();
     divider.kind = ElementKind::Divider;
     divider.fieldKey = QString::fromLatin1(kDivider);   // 非 Exif 字段，行组定位用
+    divider.style.color = onBlur ? kDividerLight : kDividerDark;
 
     Element params;
     params.id = QUuid::createUuid();
     params.kind = ElementKind::Text;
     params.fieldKey = QString::fromLatin1(kParamString);
     params.style.fontScale = kFontScaleParams;
+    params.style.color = textColor;
 
     Element lens;
     lens.id = QUuid::createUuid();
     lens.kind = ElementKind::Text;
     lens.fieldKey = QString::fromLatin1(kLens);
     lens.style.fontScale = kFontScaleSecondary;
+    lens.style.color = textColor;
 
     Element dateTime;
     dateTime.id = QUuid::createUuid();
     dateTime.kind = ElementKind::Text;
     dateTime.fieldKey = QString::fromLatin1(kDateTime);
     dateTime.style.fontScale = kFontScaleSecondary;
+    dateTime.style.color = textColor;
 
     spec.elements = { make, logo, divider, params, lens, dateTime };
 

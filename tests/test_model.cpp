@@ -43,6 +43,8 @@ private slots:
     void templateStateJsonRoundTrip() const;
     void photoDocumentJsonRoundTrip() const;
     void missingFieldsFallBackToDefaults() const;
+    void outOfRangeEnumFallsBack() const;
+    void schemaVersionRoundTrip() const;
 };
 
 void TestModel::elementDefaults() const
@@ -139,6 +141,38 @@ void TestModel::missingFieldsFallBackToDefaults() const
     QVERIFY(!d.id.isNull());
     QCOMPARE(d.meta.bitDepth, 8);
     QVERIFY(d.overrides.isEmpty());
+}
+
+void TestModel::outOfRangeEnumFallsBack() const
+{
+    // 手改 JSON / 损坏文件注入越界枚举：回落默认而非产出无效枚举
+    // （无效值会让 measure/painter 的 switch 静默跳过，数据污染不报错）
+    QJsonObject o;
+    o["id"] = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    o["kind"] = 99;
+    o["anchor"] = -7;
+    const Element e = ModelIo::elementFromJson(o);
+    QCOMPARE(e.kind, ElementKind::Text);
+    QCOMPARE(e.anchor, Anchor::BottomLeft);
+
+    // 边界合法值仍可往返
+    QJsonObject o2;
+    o2["kind"] = int(ElementKind::Free);
+    o2["anchor"] = int(Anchor::LogoLineStart);
+    const Element e2 = ModelIo::elementFromJson(o2);
+    QCOMPARE(e2.kind, ElementKind::Free);
+    QCOMPARE(e2.anchor, Anchor::LogoLineStart);
+}
+
+void TestModel::schemaVersionRoundTrip() const
+{
+    // §6：JSON 均带 schemaVersion；读取端对缺失容忍（向后兼容）
+    TemplateState t;
+    t.templateId = QStringLiteral("bottom");
+    const QJsonObject json = ModelIo::toJson(t);
+    QCOMPARE(json.value("schemaVersion").toInt(0), 1);
+    const TemplateState restored = ModelIo::templateStateFromJson(json);
+    QCOMPARE(restored.templateId, t.templateId);
 }
 
 QTEST_MAIN(TestModel)

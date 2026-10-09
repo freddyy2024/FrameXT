@@ -14,6 +14,7 @@
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QScreen>
 #include <QSplitter>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -26,11 +27,12 @@
 
 namespace {
 
-// 布局常量（04-UI设计.md §1.3 / §3；原版默认窗体 1270×950）
+// 布局常量（04-UI设计.md §1.3 / §3；原版默认窗体 1270×950，
+// 最小 960×600 为设计稿 §3 承诺值——1366×768 小屏全功能可达）
 constexpr int kDefaultWindowWidth = 1270;
 constexpr int kDefaultWindowHeight = 950;
-constexpr int kMinWindowWidth = 1000;
-constexpr int kMinWindowHeight = 680;
+constexpr int kMinWindowWidth = 960;
+constexpr int kMinWindowHeight = 600;
 constexpr int kPanelSpacing = 8;
 constexpr int kPhotoListHeight = 176;
 
@@ -89,7 +91,15 @@ MainWindow::MainWindow()
     //     获得键盘 Win+方向键 Snap 与任务栏动画；
     //  3) 拖拽/双击最大化/边缘调整用 Qt 层手势（startSystemMove/Resize）。
     setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
-    resize(kDefaultWindowWidth, kDefaultWindowHeight);
+    // 初始尺寸按主屏可用几何收敛：1366×768 屏直接给 1270×950 会底部出屏，
+    // 左栏导出面板不可见（反馈源 R9 高频痛点）
+    if (const QScreen *screen = QGuiApplication::primaryScreen()) {
+        const QRect avail = screen->availableGeometry();
+        resize(qMin(kDefaultWindowWidth, avail.width()),
+               qMin(kDefaultWindowHeight, avail.height()));
+    } else {
+        resize(kDefaultWindowWidth, kDefaultWindowHeight);
+    }
     setMinimumSize(kMinWindowWidth, kMinWindowHeight);
     buildUi();
 
@@ -340,8 +350,10 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
         break;
     }
     case QEvent::HoverLeave: {
-        // 仅回收我们设置过的光标，控件自带的特殊光标（如分割条手柄）不动
-        if (auto *widget = qobject_cast<QWidget *>(watched)) {
+        // 仅回收本窗口控件的、我们设置过的光标（控件自带特殊光标如分割条
+        // 手柄不动）；弹出菜单等外来控件不归我们管
+        auto *widget = qobject_cast<QWidget *>(watched);
+        if (widget && widget->window() == this) {
             const auto shape = widget->cursor().shape();
             if (shape == Qt::ArrowCursor || shape == Qt::PointingHandCursor)
                 widget->unsetCursor();
@@ -362,9 +374,12 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
         if (event->type() == QEvent::MouseButtonPress
             && edges
             && static_cast<QMouseEvent *>(event)->button() == Qt::LeftButton) {
-            // 命中边缘 8px 带 → 进入原生尺寸调整循环并吞掉该次按下
-            if (windowHandle() && windowHandle()->startSystemResize(edges))
+            // 命中边缘 8px 带 → 进入原生尺寸调整循环并吞掉该次按下；
+            // 系统循环吞掉后续 release，override 光标需立即清（否则残留）
+            if (windowHandle() && windowHandle()->startSystemResize(edges)) {
+                clearResizeCursor();
                 return true;
+            }
         } else if (event->type() == QEvent::MouseMove) {
             updateResizeCursor(edges);
         } else if (event->type() == QEvent::MouseButtonRelease) {

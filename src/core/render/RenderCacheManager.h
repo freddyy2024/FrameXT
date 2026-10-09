@@ -22,10 +22,10 @@ public:
     void insertBackdrop(const QString &key, const QImage &image);
     void clear();
 
-    // 测试与诊断用
-    qint64 totalBytes() const { return m_totalBytes; }
-    int hits() const { return m_hits; }
-    int misses() const { return m_misses; }
+    // 测试与诊断用（加锁访问：计数器被 worker 线程并发写，裸读是数据竞争）
+    qint64 totalBytes() const;
+    int hits() const;
+    int misses() const;
 
 private:
     void evictLocked();

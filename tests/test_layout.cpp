@@ -26,7 +26,8 @@ struct Fixture
     {
         Fixture f;
         f.plan = CanvasGeometry::plan(QLatin1String(kBottom), {1000, 750});
-        // band = (0, 751, 1000, 90)；两行 0.6/0.4 → row0: y=751 h=54, row1: y=805 h=36
+        // band = (25, 751, 950, 90)（左右各 2.5%W 内边距）；
+        // 两行 0.6/0.4 → row0: y=751 h=54, row1: y=805 h=36
 
         Element brand;
         brand.id = QUuid::createUuid();
@@ -97,6 +98,10 @@ private slots:
     void rowPlacement() const;
     void tightenSkipsInvisible() const;
     void tightenSkipsEmptyField() const;
+    void literalOverridesField() const;
+    void emptyRowFreesSpaceForNext() const;
+    void missingLogoDroppedFromRow() const;
+    void rowOverflowShrinksFont() const;
     void customPositionOverridesRow() const;
     void logoAspectRatio() const;
     void dividerProportions() const;
@@ -136,11 +141,11 @@ void TestLayout::tightenSkipsInvisible() const
     const auto layouts = LayoutEngine::resolve(f.elements, { row0 }, f.plan,
                                                f.resolver(), f.logoResolver());
 
-    // 收紧后只排 brand 与 params；brand 仍从行左端开始，params 紧随其后
+    // 收紧后只排 brand 与 params；brand 从行左端（含 2.5%W 信息带内边距）开始
     QCOMPARE(layouts.size(), 2);
     const QRectF brandRect = layouts.value(f.elements[0].id).pxRect;
     const QRectF paramRect = layouts.value(f.elements[3].id).pxRect;
-    QCOMPARE(brandRect.left(), 0.0);
+    QCOMPARE(brandRect.left(), f.plan.photoRect.width() * 0.025);
     QVERIFY(paramRect.left() > brandRect.right());
 }
 
@@ -154,6 +159,75 @@ void TestLayout::tightenSkipsEmptyField() const
                                                f.resolver(), f.logoResolver());
     QCOMPARE(layouts.size(), 1);   // 仅剩 brand
     QVERIFY(!layouts.contains(f.elements[3].id));
+}
+
+void TestLayout::literalOverridesField() const
+{
+    // literal（自由文本/覆盖值）优先于字段解析值
+    Fixture f = Fixture::make();
+    f.elements[0].literal = QStringLiteral("OVERRIDE");
+
+    const LayoutRow row0 = f.makeRow(0, 0.6, { f.elements[0].id });
+    const auto layouts = LayoutEngine::resolve(f.elements, { row0 }, f.plan,
+                                               f.resolver(), f.logoResolver());
+    QCOMPARE(layouts.size(), 1);
+    QCOMPARE(layouts.value(f.elements[0].id).resolvedText, QStringLiteral("OVERRIDE"));
+}
+
+void TestLayout::emptyRowFreesSpaceForNext() const
+{
+    // 行内全部被剔除（Logo 缺图）→ 整行不占位，下一行前移到信息带顶
+    Fixture f = Fixture::make();
+    f.logos.clear();   // brandLogo 缺图
+
+    const LayoutRow row0 = f.makeRow(0, 0.6, { f.elements[1].id });   // 仅 Logo
+    const LayoutRow row1 = f.makeRow(1, 0.4, { f.elements[4].id });   // lens
+    const auto layouts = LayoutEngine::resolve(f.elements, { row0, row1 }, f.plan,
+                                               f.resolver(), f.logoResolver());
+    QVERIFY(!layouts.contains(f.elements[1].id));   // 缺图 Logo 剔除
+    // 行0 剔除后 lens 前移：垂直居中于 y=751 起的 36 高行 → 中心 ≈769
+    //（未前移则居中于 y=805 起的行 → 823）
+    const QRectF lensRect = layouts.value(f.elements[4].id).pxRect;
+    QVERIFY2(qAbs(lensRect.center().y() - 769.0) <= 1.0,
+             "空行未释放空间：lens 未前移到信息带顶");
+}
+
+void TestLayout::missingLogoDroppedFromRow() const
+{
+    // Logo 缺图 → 行内不留占位空洞：params 左移到 brand + gap 处
+    Fixture f = Fixture::make();
+    f.logos.clear();
+
+    const LayoutRow row0 = f.makeRow(0, 0.6, { f.elements[0].id, f.elements[1].id,
+                                               f.elements[3].id });
+    const auto layouts = LayoutEngine::resolve(f.elements, { row0 }, f.plan,
+                                               f.resolver(), f.logoResolver());
+    QCOMPARE(layouts.size(), 2);   // brand + params，无 Logo 占位
+    QVERIFY(!layouts.contains(f.elements[1].id));
+    const QRectF brandRect = layouts.value(f.elements[0].id).pxRect;
+    const QRectF paramRect = layouts.value(f.elements[3].id).pxRect;
+    // params 紧跟 brand（间距 ≈ rowH×0.2 = 10.8，允许度量误差）
+    QVERIFY2(paramRect.left() - brandRect.right() < 15.0,
+             "Logo 缺图后 params 应左移紧贴 brand，不留 2:1 占位空洞");
+}
+
+void TestLayout::rowOverflowShrinksFont() const
+{
+    // 超长镜头名：整行等比缩字（0.7~1.0×）且不越信息带右缘
+    Fixture f = Fixture::make();
+    f.fields.insert("lens",
+                    QStringLiteral("OM Digital Solutions M.Zuiko ED 12-40mm F2.8 PRO")
+                        .repeated(3));
+
+    const LayoutRow row1 = f.makeRow(1, 0.4, { f.elements[4].id });
+    const auto layouts = LayoutEngine::resolve(f.elements, { row1 }, f.plan,
+                                               f.resolver(), f.logoResolver());
+    const ElementLayout lensLayout = layouts.value(f.elements[4].id);
+    QVERIFY2(lensLayout.fontScale < 1.0, "溢出行应缩字");
+    QVERIFY2(lensLayout.fontScale >= 0.7 - 0.01, "缩字下限 0.7×");
+    // 右缘约束（QRectF 语义 right = left+width）：band 右缘 = 25 + 950 = 975
+    QVERIFY2(lensLayout.pxRect.right() <= 975.5,
+             qPrintable(QStringLiteral("布局越右缘：right=%1").arg(lensLayout.pxRect.right())));
 }
 
 void TestLayout::customPositionOverridesRow() const
@@ -196,7 +270,8 @@ void TestLayout::logoAspectRatio() const
 void TestLayout::dividerProportions() const
 {
     Fixture f = Fixture::make();
-    const LayoutRow row0 = f.makeRow(0, 0.6, { f.elements[2].id });   // 仅分隔线
+    // 与 brand 同行（divider 依附行内元素，独行为空行被收紧剔除）
+    const LayoutRow row0 = f.makeRow(0, 0.6, { f.elements[0].id, f.elements[2].id });
     const auto layouts = LayoutEngine::resolve(f.elements, { row0 }, f.plan,
                                                f.resolver(), f.logoResolver());
 
