@@ -7,6 +7,11 @@ add_library(framext_core STATIC
     render/CanvasGeometry.cpp
     render/BackdropRenderer.cpp
     render/PhotoDecoder.cpp
+    render/LayoutEngine.cpp
+    render/ElementPainter.cpp
+    render/RenderCacheManager.cpp
+    render/BuiltinTemplates.cpp
+    render/RenderPipeline.cpp
 )
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui)
