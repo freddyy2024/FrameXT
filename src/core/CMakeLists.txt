@@ -4,6 +4,9 @@
 add_library(framext_core STATIC
     AppInfo.cpp
     model/ModelIo.cpp
+    render/CanvasGeometry.cpp
+    render/BackdropRenderer.cpp
+    render/PhotoDecoder.cpp
 )
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui)
