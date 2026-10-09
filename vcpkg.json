@@ -1,0 +1,10 @@
+{
+    "name": "framext",
+    "version": "0.1.0",
+    "description": "FrameXT 照片边框工具（Qt C++ 重构版）",
+    "homepage": "https://framext.com",
+    "license": "GPL-3.0-or-later",
+    "dependencies": [
+        "exiv2"
+    ]
+}

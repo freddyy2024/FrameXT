@@ -1,0 +1,17 @@
+# 构建产物
+build/
+out/
+vcpkg_installed/
+
+# IDE / 编辑器
+.vs/
+.vscode/
+.idea/
+CMakeLists.txt.user
+*.user
+compile_commands.json
+.ccache/
+
+# 系统文件
+Thumbs.db
+.DS_Store

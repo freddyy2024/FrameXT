@@ -1,0 +1,335 @@
+/* ============================================================
+   FrameXT 浅色主题（Token 对齐 04-UI设计.md §1，全局圆角 5px）
+   色板：
+     窗口底    #F5F6F8   卡片   #FFFFFF   边框   #E4E7EC
+     分隔线    #E9EBEF   弱边   #D8DCE2
+     文字主    #1F2329   次级   #5A6068   弱化   #9AA0A8
+     强调      #6C5CE7   悬停   #5B4BD5   浅底   #EFEBFD
+     危险      #E5484D   成功   #2FA36B   警示   #E8A13C
+     Logo 渐变 #7C6AF0 → #5B8DEF（135°）
+   ============================================================ */
+
+/* ---------- 全局 ---------- */
+QMainWindow, #centralArea {
+    background: #F5F6F8;
+}
+
+QWidget {
+    color: #1F2329;
+    font-size: 12px;
+}
+
+QLabel {
+    background: transparent;
+}
+
+QToolTip {
+    background: #FFFFFF;
+    color: #1F2329;
+    border: 1px solid #D8DCE2;
+    border-radius: 5px;
+    padding: 4px 8px;
+}
+
+/* ---------- 标题栏 ---------- */
+/* #titleBar 底色与下缘分隔线由 TitleBar::paintEvent 自绘 */
+
+QToolButton#languageButton {
+    background: transparent;
+    border: none;
+    border-radius: 5px;
+    color: #5A6068;
+    padding: 4px 8px;
+}
+
+QToolButton#languageButton:hover {
+    background: #EFEBFD;
+    color: #6C5CE7;
+}
+
+QToolButton#languageButton::menu-indicator {
+    image: none;   /* 文案已带 ▾，隐藏默认指示箭头 */
+}
+
+QToolButton#captionMin, QToolButton#captionMax {
+    background: transparent;
+    border: none;
+    color: #5A6068;
+    font-family: "Segoe Fluent Icons";
+    font-size: 10px;
+}
+
+QToolButton#captionMin:hover, QToolButton#captionMax:hover {
+    background: #EEF0F3;
+    color: #1F2329;
+}
+
+QToolButton#captionMin:pressed, QToolButton#captionMax:pressed {
+    background: #E4E7EC;
+}
+
+QToolButton#captionClose {
+    background: transparent;
+    border: none;
+    color: #5A6068;
+    font-family: "Segoe Fluent Icons";
+    font-size: 10px;
+}
+
+QToolButton#captionClose:hover {
+    background: #E5484D;   /* 关闭悬停红 */
+    color: #FFFFFF;
+}
+
+QToolButton#captionClose:pressed {
+    background: #D63B40;
+    color: #FFFFFF;
+}
+
+/* ---------- 面板卡片 ---------- */
+#card {
+    background: #FFFFFF;
+    border: 1px solid #E4E7EC;
+    border-radius: 5px;
+}
+
+#panelHeader, #cardBody {
+    background: transparent;
+}
+
+#panelHeader {
+    border-bottom: 1px solid #F3F4F7;
+}
+
+#panelTitle {
+    font-weight: 600;
+}
+
+#panelCount {
+    color: #9AA0A8;
+}
+
+#sidePanel, #centerPanel, #bottomPanel {
+    background: transparent;
+}
+
+/* 预览画布空态：虚线引导区 */
+#previewCanvas {
+    background: #FFFFFF;
+    border: 1px dashed #D8DCE2;
+    border-radius: 5px;
+}
+
+#emptyHint {
+    color: #9AA0A8;
+}
+
+#emptyHintPrimary {
+    color: #5A6068;
+}
+
+/* ---------- 按钮 ---------- */
+QPushButton {
+    background: #FFFFFF;
+    border: 1px solid #D8DCE2;
+    border-radius: 5px;
+    padding: 0 14px;
+    min-height: 26px;
+    color: #1F2329;
+}
+
+QPushButton:hover {
+    border-color: #6C5CE7;
+    color: #6C5CE7;
+}
+
+QPushButton:pressed {
+    background: #F3F4F7;
+}
+
+QPushButton:disabled {
+    background: #F3F4F7;
+    border-color: #E9EBEF;
+    color: #9AA0A8;
+}
+
+QPushButton#primaryButton {
+    background: #6C5CE7;
+    border: none;
+    color: #FFFFFF;
+}
+
+QPushButton#primaryButton:hover {
+    background: #5B4BD5;
+}
+
+QPushButton#primaryButton:pressed {
+    background: #4F3FC4;
+}
+
+QPushButton#primaryButton:disabled {
+    background: #C3C8CF;
+    color: #FFFFFF;
+}
+
+/* ---------- 输入控件 ---------- */
+QComboBox, QLineEdit, QSpinBox, QDoubleSpinBox {
+    background: #FFFFFF;
+    border: 1px solid #D8DCE2;
+    border-radius: 5px;
+    min-height: 26px;
+    padding: 0 8px;
+}
+
+QComboBox:hover, QLineEdit:hover {
+    border-color: #B9ACF5;
+}
+
+QComboBox:focus, QLineEdit:focus {
+    border-color: #6C5CE7;
+}
+
+QComboBox:disabled, QLineEdit:disabled {
+    background: #F3F4F7;
+    color: #9AA0A8;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 24px;
+}
+
+QComboBox::down-arrow {
+    image: none;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid #5A6068;
+    margin-right: 8px;
+}
+
+QComboBox QAbstractItemView {
+    background: #FFFFFF;
+    border: 1px solid #E4E7EC;
+    border-radius: 5px;
+    selection-background-color: #EFEBFD;
+    selection-color: #1F2329;
+    outline: none;
+}
+
+/* ---------- 菜单 ---------- */
+QMenu {
+    background: #FFFFFF;
+    border: 1px solid #E4E7EC;
+    border-radius: 5px;
+    padding: 4px;
+}
+
+QMenu::item {
+    padding: 6px 24px 6px 12px;
+    border-radius: 5px;
+}
+
+QMenu::item:selected {
+    background: #EFEBFD;
+    color: #1F2329;
+}
+
+QMenu::separator {
+    height: 1px;
+    background: #E9EBEF;
+    margin: 4px 8px;
+}
+
+/* ---------- 列表 ---------- */
+QListWidget {
+    background: #FFFFFF;
+    border: none;
+    outline: none;
+}
+
+QListWidget::item {
+    min-height: 32px;
+    border-radius: 5px;
+    margin: 1px 4px;
+}
+
+QListWidget::item:hover {
+    background: #F3F4F7;
+}
+
+QListWidget::item:selected {
+    background: #EFEBFD;
+    color: #1F2329;
+}
+
+/* ---------- 滑杆（模板参数，M3 使用） ---------- */
+QSlider::groove:horizontal {
+    height: 4px;
+    background: #E9EBEF;
+    border-radius: 2px;
+}
+
+QSlider::sub-page:horizontal {
+    background: #6C5CE7;
+    border-radius: 2px;
+}
+
+QSlider::handle:horizontal {
+    width: 14px;
+    height: 14px;
+    margin: -5px 0;
+    border-radius: 7px;
+    background: #FFFFFF;
+    border: 2px solid #6C5CE7;
+}
+
+QSlider::handle:horizontal:hover {
+    border-color: #5B4BD5;
+}
+
+/* ---------- 滚动条 ---------- */
+QScrollBar:vertical {
+    background: transparent;
+    width: 8px;
+    margin: 0;
+}
+
+QScrollBar::handle:vertical {
+    background: #C3C8CF;
+    border-radius: 4px;
+    min-height: 32px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #9AA0A8;
+}
+
+QScrollBar:horizontal {
+    background: transparent;
+    height: 8px;
+    margin: 0;
+}
+
+QScrollBar::handle:horizontal {
+    background: #C3C8CF;
+    border-radius: 4px;
+    min-width: 32px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #9AA0A8;
+}
+
+QScrollBar::add-line, QScrollBar::sub-line {
+    width: 0;
+    height: 0;
+}
+
+QScrollBar::add-page, QScrollBar::sub-page {
+    background: transparent;
+}
+
+/* ---------- 分隔/分割条 ---------- */
+QSplitter::handle {
+    background: #F5F6F8;
+}
