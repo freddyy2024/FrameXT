@@ -150,6 +150,8 @@ private slots:
     void jpegToPngRoundTrip();
     // 健壮性：零字节/截断/假 PNG → 失败归约，绝不崩溃
     void edgeInputsFailGracefully();
+    // Orientation=1–8 全参数化：源转向 → 导出后一律覆写为 1（画布已转正）
+    void allOrientationsExportToUpright();
     // ExportController 冲突策略 + 完成汇总
     void conflictPolicies();
     // 取消语义：立即取消不崩溃、finished 必达（时序宽松——小图可能全完成）
@@ -412,6 +414,52 @@ void TestExport::edgeInputsFailGracefully()
         QVERIFY2(!result.stage.isEmpty(),
                  "失败必须带阶段标注（失败清单/诊断包依赖）");
         QVERIFY(!result.error.isEmpty());
+    }
+}
+
+void TestExport::allOrientationsExportToUpright()
+{
+    // R 样本集补缺（原版「竖版识别为横版」bug 的导出侧钉子）：
+    // Orientation=1..8 全参数化——导出画布已含转向修正，
+    // Exif 必须统一覆写为 1，绝不允许源值透传造成查看器二次旋转
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    for (uint16_t orientation = 1; orientation <= 8; ++orientation) {
+        QImage source(120, 90, QImage::Format_ARGB32);
+        source.fill(Qt::magenta);
+        const QString srcPath = writeExifSourceJpeg(
+            dir.filePath(QStringLiteral("o%1.jpg").arg(orientation)),
+            source, orientation);
+        QVERIFY(!srcPath.isEmpty());
+
+        ExportOptions opt;
+        opt.outputDir = dir.filePath(QStringLiteral("out%1").arg(orientation));
+        QVERIFY(QDir().mkpath(opt.outputDir));
+        PhotoDocument doc = makeDoc(srcPath, source.size());
+        ExportEngine::ItemRequest req;
+        req.doc = doc;
+        req.options = opt;
+        req.outputPath = QDir(opt.outputDir).filePath("o.jpg");
+        req.resolver = emptyResolver();
+
+        const auto result = ExportEngine::exportSingle(req);
+        QVERIFY2(result.ok,
+                 qPrintable(QStringLiteral("Orientation=%1: %2")
+                                .arg(orientation)
+                                .arg(result.error)));
+
+        QFile out(result.outputPath);
+        QVERIFY(out.open(QIODevice::ReadOnly));
+        const QByteArray tiff =
+            MetadataMuxer::exifTiffFromJpeg(out.readAll());
+        QVERIFY(!tiff.isEmpty());
+        Exiv2::Image::UniquePtr img = Exiv2::ImageFactory::open(
+            reinterpret_cast<const Exiv2::byte *>(tiff.constData()),
+            tiff.size());
+        QVERIFY(img.get() != nullptr);
+        img->readMetadata();
+        QCOMPARE(img->exifData()["Exif.Image.Orientation"].value().toInt64(),
+                 qint64(1));
     }
 }
 

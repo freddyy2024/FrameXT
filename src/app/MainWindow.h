@@ -81,6 +81,8 @@ private:
     void startExport(const ExportOptions &options);
     void showExportFinished(const QList<ExportEngine::ItemResult> &results,
                             bool canceled, qint64 elapsedMs);
+    void showExportFailures(const QList<ExportEngine::ItemResult> &failedItems);
+    void saveDiagnostics(const QList<ExportEngine::ItemResult> &failedItems);
     void restoreExportPrefs();   // QSettings：导出预设（§4.8）
     void saveExportPrefs(const ExportOptions &options);
 

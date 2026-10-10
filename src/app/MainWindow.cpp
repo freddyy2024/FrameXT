@@ -31,6 +31,12 @@
 #include <QMessageBox>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QDate>
+#include <QDir>
+#include <QHeaderView>
+#include <QTableWidget>
+#include <QTemporaryDir>
+#include <QTextStream>
 #include <QProcess>
 #include <QPushButton>
 #include <QRadioButton>
@@ -921,7 +927,7 @@ void MainWindow::showExportFinished(
     int ok = 0, skipped = 0, failed = 0;
     qint64 srcBytes = 0, outBytes = 0;
     QString outputDir;
-    QStringList failures;
+    QList<ExportEngine::ItemResult> failedItems;
     for (const auto &r : results) {
         if (r.skipped)
             ++skipped;
@@ -932,9 +938,7 @@ void MainWindow::showExportFinished(
             outputDir = QFileInfo(r.outputPath).absolutePath();
         } else {
             ++failed;
-            failures += QStringLiteral("%1（%2：%3)")
-                            .arg(QFileInfo(r.sourcePath).fileName(), r.stage,
-                                 r.error);
+            failedItems.append(r);
         }
     }
 
@@ -975,14 +979,6 @@ void MainWindow::showExportFinished(
     statLabel->setWordWrap(true);
     layout->addWidget(statLabel);
 
-    if (!failures.isEmpty()) {
-        auto *failLabel = new QLabel(failures.join(QStringLiteral("\n")), &done);
-        failLabel->setWordWrap(true);
-        failLabel->setStyleSheet(
-            QStringLiteral("color: %1").arg(QStringLiteral("#D9534F")));
-        layout->addWidget(failLabel);
-    }
-
     layout->addSpacing(8);
     auto *buttonRow = new QHBoxLayout();
     if (ok > 0) {
@@ -994,6 +990,15 @@ void MainWindow::showExportFinished(
         buttonRow->addWidget(openFolder);
     }
     buttonRow->addStretch();
+    if (failed > 0) {
+        // §5.4 失败清单（R5 自助排查路径）
+        auto *detail = new QPushButton(tr("失败详情…"), &done);
+        detail->setObjectName("secondaryButton");
+        connect(detail, &QPushButton::clicked, &done, [this, failedItems] {
+            showExportFailures(failedItems);
+        });
+        buttonRow->addWidget(detail);
+    }
     auto *okButton = new QPushButton(tr("确定"), &done);
     okButton->setObjectName("primaryButton");
     connect(okButton, &QPushButton::clicked, &done, &QDialog::accept);
@@ -1001,6 +1006,169 @@ void MainWindow::showExportFinished(
     layout->addLayout(buttonRow);
 
     done.exec();
+}
+
+void MainWindow::showExportFailures(
+    const QList<ExportEngine::ItemResult> &failedItems)
+{
+    // §5.4 失败汇总对话框：表格（文件/阶段/原因）+ 重试 + 诊断包
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("导出失败清单"));
+    dialog.setModal(true);
+    dialog.setFixedWidth(560);
+    dialog.setFixedHeight(360);
+    auto *layout = new QVBoxLayout(&dialog);
+    layout->setContentsMargins(16, 16, 16, 12);
+    layout->setSpacing(8);
+
+    auto *table = new QTableWidget(failedItems.size(), 3, &dialog);
+    table->setHorizontalHeaderLabels({ tr("文件"), tr("阶段"), tr("原因") });
+    table->verticalHeader()->setVisible(false);
+    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    table->horizontalHeader()->setStretchLastSection(true);
+    for (int i = 0; i < failedItems.size(); ++i) {
+        const auto &r = failedItems.at(i);
+        table->setItem(i, 0, new QTableWidgetItem(
+                                QFileInfo(r.sourcePath).fileName()));
+        table->setItem(i, 1, new QTableWidgetItem(r.stage));
+        table->setItem(i, 2, new QTableWidgetItem(r.error));
+    }
+    table->setColumnWidth(0, 200);
+    table->setColumnWidth(1, 60);
+    layout->addWidget(table, 1);
+
+    auto *buttonRow = new QHBoxLayout();
+    auto *retry = new QPushButton(tr("重试失败项"), &dialog);
+    retry->setObjectName("primaryButton");
+    connect(retry, &QPushButton::clicked, &dialog, [this, &dialog, failedItems] {
+        // 按 sourcePath 找回文档快照重新导出（用户可能已改选项——沿用
+        // 面板当前值；冲突策略沿用，重试项的输出名重新 preplan）
+        QList<PhotoDocument> docs;
+        QList<FieldValueResolver> resolvers;
+        QList<QImage> logos;
+        for (const auto &r : failedItems) {
+            for (const PhotoDocument &doc : m_project->documents()) {
+                if (doc.sourcePath != r.sourcePath
+                    || doc.meta.pixelSize.isEmpty())
+                    continue;
+                docs.append(doc);
+                resolvers.append(m_project->fieldResolver(doc));
+                logos.append(m_project->resolveLogo(doc));
+                break;
+            }
+        }
+        if (docs.isEmpty())
+            return;
+        dialog.accept();
+        m_exportDone = 0;
+        m_exportPanel->setExporting(true);
+        const ExportOptions options = m_exportPanel->currentOptions();
+        m_export->start(docs, resolvers, logos, options,
+                        [this](const QString &name) {
+                            return askConflictDialog(this, name);
+                        });
+    });
+    buttonRow->addWidget(retry);
+
+    auto *diag = new QPushButton(tr("导出诊断包"), &dialog);
+    diag->setObjectName("secondaryButton");
+    connect(diag, &QPushButton::clicked, &dialog,
+            [this, &dialog, failedItems] {
+                saveDiagnostics(failedItems);
+            });
+    buttonRow->addWidget(diag);
+    buttonRow->addStretch();
+
+    auto *close = new QPushButton(tr("关闭"), &dialog);
+    connect(close, &QPushButton::clicked, &dialog, &QDialog::reject);
+    buttonRow->addWidget(close);
+    layout->addLayout(buttonRow);
+
+    dialog.exec();
+}
+
+void MainWindow::saveDiagnostics(
+    const QList<ExportEngine::ItemResult> &failedItems)
+{
+    // 诊断包 = zip（失败文件副本 + 错误日志 + 版本信息），R5 场景：
+    // 用户自助打包发 issue。zip 用系统自带 tar.exe（Windows 10+
+    // bsdtar，-a 按扩展名选 zip 格式），零依赖。
+    const QString target = QFileDialog::getSaveFileName(
+        this, tr("保存诊断包"),
+        QStringLiteral("FrameXT-诊断-%1.zip")
+            .arg(QDate::currentDate().toString(QStringLiteral("yyyyMMdd"))),
+        tr("诊断包 (*.zip)"));
+    if (target.isEmpty())
+        return;
+
+    QTemporaryDir staging;
+    if (!staging.isValid()) {
+        showToast(tr("创建临时目录失败"));
+        return;
+    }
+    const QDir root(staging.path());
+
+    // 1) 失败文件副本（≤20MB/个：超大源截断拷贝，日志注明）
+    const QDir filesDir = root.mkpath(QStringLiteral("files"))
+                              ? QDir(root.filePath(QStringLiteral("files")))
+                              : QDir();
+    qint64 copied = 0;
+    QSet<QString> seen;
+    for (const auto &r : failedItems) {
+        if (seen.contains(r.sourcePath))
+            continue;
+        seen.insert(r.sourcePath);
+        QFile src(r.sourcePath);
+        const qint64 size = src.size();
+        if (!src.open(QIODevice::ReadOnly))
+            continue;
+        constexpr qint64 kMaxPerFile = 20LL * 1024 * 1024;
+        const QByteArray bytes = src.read(kMaxPerFile);
+        src.close();
+        const QString name = QStringLiteral("%1_%2")
+                                 .arg(copied)
+                                 .arg(QFileInfo(r.sourcePath).fileName());
+        QFile dst(filesDir.filePath(name));
+        if (dst.open(QIODevice::WriteOnly)) {
+            dst.write(bytes);
+            dst.close();
+            ++copied;
+        }
+    }
+
+    // 2) 错误日志 + 版本信息
+    QFile log(root.filePath(QStringLiteral("errors.txt")));
+    if (log.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream ts(&log);
+        ts.setEncoding(QStringConverter::Utf8);
+        ts << "FrameXT " << fxt::AppInfo::versionText() << "\n";
+        ts << QLocale().system().name() << " / "
+           << QSysInfo::prettyProductName() << "\n\n";
+        for (const auto &r : failedItems) {
+            ts << r.sourcePath << "\n  stage=" << r.stage
+               << "\n  error=" << r.error << "\n\n";
+        }
+    }
+
+    // 3) tar -a 打 zip（bsdtar：-C 切根，包内路径干净）
+    const QString listArg = staging.path();
+    QProcess tar;
+    tar.start(QStringLiteral("tar"),
+              { QStringLiteral("-a"), QStringLiteral("-c"),
+                QStringLiteral("-f"), target,
+                QStringLiteral("-C"), listArg,
+                QStringLiteral("files"), QStringLiteral("errors.txt") });
+    if (!tar.waitForStarted(3000) || !tar.waitForFinished(60000)
+        || tar.exitCode() != 0) {
+        showToast(tr("诊断包生成失败（%1）")
+                      .arg(QString::fromLocal8Bit(tar.readAllStandardError()
+                                                      .left(200))));
+        return;
+    }
+    showToast(tr("诊断包已保存：%1（含 %2 个失败文件副本）")
+                  .arg(QFileInfo(target).fileName())
+                  .arg(copied));
 }
 
 void MainWindow::restoreExportPrefs()

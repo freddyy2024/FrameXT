@@ -64,8 +64,19 @@ target_include_directories(test_export PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/core)
 target_link_libraries(test_export PRIVATE framext_core Qt6::Core Qt6::Gui Qt6::Concurrent Qt6::Test)
 
+# M4 性能基准（4.1 准入）：60 张 45MP 全尺寸导出 ≤60s。
+# 独立 target 不进默认 ctest 轮（45MP 样本生成一次性成本高）；
+# 手工跑：FXT_PERF_DIR=<持久目录> 缓存样本后重复测量
+add_executable(perf_export perf_export.cpp
+    ../src/app/controllers/ExportController.cpp)
+target_include_directories(perf_export PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/app
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/core)
+target_link_libraries(perf_export PRIVATE framext_core Qt6::Core Qt6::Gui Qt6::Concurrent Qt6::Test)
+
 add_test(NAME test_samples COMMAND test_samples)
 add_test(NAME test_brand COMMAND test_brand)
 add_test(NAME test_projectcontroller COMMAND test_projectcontroller)
 add_test(NAME test_export COMMAND test_export)
+# perf_export 不进 ctest（手工跑，样本经 FXT_PERF_DIR 缓存）
 
