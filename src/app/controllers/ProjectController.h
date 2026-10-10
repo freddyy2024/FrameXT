@@ -8,6 +8,7 @@
 #include <QUuid>
 
 #include "model/PhotoDocument.h"
+#include "render/LayoutEngine.h"
 #include "render/RenderPipeline.h"
 
 namespace fxt {
@@ -55,12 +56,21 @@ public:
     // —— 修改 API（自动撤销快照 + 防抖渲染）——
     void setElementVisible(const QUuid &elementId, bool visible);
     void setOverride(const QString &fieldKey, const QString &value);
+    void clearFieldOverride(const QString &fieldKey);   // 恢复该字段原值
     void clearOverrides();
     void setTemplateId(const QString &templateId);
     // 手动定位：锚点 + 相对偏移；hasCustomPosition=true 脱离行组
     void moveElement(const QUuid &elementId, Anchor anchor, const QPointF &offset);
+    // 拖动增量（画布松手提交；保持原锚点，offset 累加）
+    void nudgeElement(const QUuid &elementId, const QPointF &offsetDelta);
     // 元素样式批量改（选中元素样式区）
     void setElementStyle(const QUuid &elementId, const TextStyle &style);
+    // 自由文本内容改（fieldKey 为空的元素；绑定字段元素走 setOverride）
+    void setElementLiteral(const QUuid &elementId, const QString &text);
+    // 真删除元素（仅自定义文本；模板元素用 setElementVisible 隐藏）
+    void removeElement(const QUuid &elementId);
+    // 新增自定义文本（≤5，04-UI §3.5），返回新元素 id（超限返回空）
+    QUuid addCustomText();
     // 置顶（行组重排为第一行首位；脱离行组则改 zIndex 语义=移到列表头）
     void raiseElement(const QUuid &elementId);
     // 还原位置（回到行组自动排布）
@@ -80,9 +90,14 @@ public:
     void renderNow();            // 立即渲染（切照片等无防抖场景）
     QImage lastPreview() const { return m_preview; }
 
+    // 布局查询（画布命中/拖动/就地编辑用）：与渲染 S5 同源解算，
+    // 列表序 = 元素 z 序（前 = 上层）。纯看图态仍返回完整布局。
+    QList<QPair<QUuid, ElementLayout>> elementLayouts();
+
     // 水印显隐（纯看图模式，渲染时 visible 元素整体跳过）
     bool watermarkHidden() const { return m_watermarkHidden; }
     void setWatermarkHidden(bool hidden);
+    void toggleWatermarkHidden();
 
     // resolver 装配（渲染管线 + 画布元素信息）
     FieldValueResolver fieldResolver(const PhotoDocument &doc) const;
@@ -98,6 +113,7 @@ signals:
     void documentChanged(const QUuid &id);       // 状态变更（面板/列表刷新）
     void previewUpdated(const QImage &image);
     void undoAvailabilityChanged(bool available);
+    void watermarkHiddenChanged(bool hidden);
     void renderError(const QString &message);
 
 private:

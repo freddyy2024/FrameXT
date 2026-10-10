@@ -30,6 +30,8 @@ struct TextStyle
     QString fontFamily = QStringLiteral("Microsoft YaHei UI");
     qreal fontScale = 0.028;  // 字号 = fontScale × 画布宽（相对单位制）
     bool bold = false;
+    bool italic = false;
+    qreal letterSpacing = 0.0;  // 字间距 = letterSpacing × 画布宽（相对单位制）
     QColor color = QColor(Qt::black);
     qreal opacity = 1.0;
 

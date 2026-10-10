@@ -10,6 +10,7 @@ qt_add_executable(framext WIN32
     controllers/ImportController.h controllers/ImportController.cpp
     panels/BasicInfoPanel.h panels/BasicInfoPanel.cpp
     panels/PhotoListPanel.h panels/PhotoListPanel.cpp
+    panels/WatermarkPanel.h panels/WatermarkPanel.cpp
     canvas/PreviewCanvas.h canvas/PreviewCanvas.cpp
     ../../resources.qrc
 )

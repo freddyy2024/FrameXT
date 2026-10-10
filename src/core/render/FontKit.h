@@ -16,6 +16,11 @@ inline QFont create(const TextStyle &style, qreal canvasWidth, qreal factor = 1.
     QFont font(style.fontFamily);
     font.setPixelSize(qMax(1, qRound(style.fontScale * factor * canvasWidth)));
     font.setBold(style.bold);
+    font.setItalic(style.italic);
+    // 字间距与字号同制（相对画布宽），保证预览/导出比例一致
+    if (style.letterSpacing != 0.0)
+        font.setLetterSpacing(QFont::AbsoluteSpacing,
+                              style.letterSpacing * canvasWidth);
     return font;
 }
 

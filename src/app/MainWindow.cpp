@@ -7,6 +7,7 @@
 #include "controllers/ProjectController.h"
 #include "panels/BasicInfoPanel.h"
 #include "panels/PhotoListPanel.h"
+#include "panels/WatermarkPanel.h"
 
 #include <QAbstractItemView>
 #include <QApplication>
@@ -20,6 +21,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
+#include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QMouseEvent>
@@ -28,6 +30,7 @@
 #include <QScreen>
 #include <QSlider>
 #include <QSplitter>
+#include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <QWindow>
@@ -207,11 +210,19 @@ void MainWindow::buildUi()
             [this](const QUuid &id) {
                 m_photoList->setCurrent(id);
                 refreshBasicInfo();
+                refreshWatermarkPanel();
+                m_canvas->setSelectedElement(QUuid());
             });
     connect(m_project, &ProjectController::previewUpdated, this,
-            [this](const QImage &image) { m_canvas->setPreview(image); });
+            [this](const QImage &image) {
+                m_canvas->setPreview(image);
+                // 渲染完成同步元素布局（画布命中/拖动/就地编辑数据源）
+                m_canvas->setElementLayouts(m_project->elementLayouts());
+            });
     connect(m_project, &ProjectController::undoAvailabilityChanged, this,
             [this](bool avail) { m_photoList->setUndoEnabled(avail); });
+    connect(m_project, &ProjectController::watermarkHiddenChanged, m_canvas,
+            &PreviewCanvas::setWatermarkHiddenHint);
     connect(m_project, &ProjectController::documentChanged, this,
             [this](const QUuid &) { refreshBasicInfo(); });
 
@@ -242,12 +253,125 @@ void MainWindow::buildUi()
             });
     connect(m_photoList, &PhotoListPanel::clearRequested, this,
             &MainWindow::confirmClear);
-    connect(m_photoList, &PhotoListPanel::undoRequested, m_project,
-            &ProjectController::undo);
+    connect(m_photoList, &PhotoListPanel::undoRequested, this, [this] {
+        m_project->undo();
+        refreshWatermarkPanel();   // 撤销可能回退元素树结构
+    });
 
     // —— 画布交互接线 ——
     connect(m_canvas, &PreviewCanvas::compareOriginalPressed, m_project,
             &ProjectController::setWatermarkHidden);
+    connect(m_canvas, &PreviewCanvas::elementSelected, m_watermarkPanel,
+            &WatermarkPanel::setSelected);
+    connect(m_canvas, &PreviewCanvas::elementMoved, m_project,
+            &ProjectController::nudgeElement);
+    connect(m_canvas, &PreviewCanvas::elementTextEdited, this,
+            [this](const QUuid &id, const QString &text) {
+                // 自定义文本改 literal；绑定字段元素写覆盖层
+                for (const Element &el :
+                     m_project->current()->templateState.elements) {
+                    if (el.id != id)
+                        continue;
+                    if (el.fieldKey.isEmpty())
+                        m_project->setElementLiteral(id, text);
+                    else
+                        m_project->setOverride(el.fieldKey, text);
+                    return;
+                }
+            });
+    connect(m_canvas, &PreviewCanvas::elementDeleteRequested, this,
+            [this](const QUuid &id) {
+                // 自定义文本真删；模板元素隐藏（可从右栏勾选恢复）
+                for (const Element &el :
+                     m_project->current()->templateState.elements) {
+                    if (el.id != id)
+                        continue;
+                    if (el.kind == ElementKind::Text && el.fieldKey.isEmpty())
+                        m_project->removeElement(id);
+                    else
+                        m_project->setElementVisible(id, false);
+                    return;
+                }
+            });
+    connect(m_canvas, &PreviewCanvas::elementContextMenuRequested, this,
+            &MainWindow::showElementContextMenu);
+    connect(m_canvas, &PreviewCanvas::showWatermarkRequested, m_project,
+            &ProjectController::toggleWatermarkHidden);
+
+    // —— 水印内容面板接线 ——
+    connect(m_watermarkPanel, &WatermarkPanel::elementVisibleToggled,
+            m_project, &ProjectController::setElementVisible);
+    connect(m_watermarkPanel, &WatermarkPanel::elementContentEdited, this,
+            [this](const QUuid &id, const QString &text) {
+                for (const Element &el :
+                     m_project->current()->templateState.elements) {
+                    if (el.id != id)
+                        continue;
+                    // 空文本 = 清除覆盖恢复原值；自定义文本走 literal
+                    if (el.fieldKey.isEmpty())
+                        m_project->setElementLiteral(id, text);
+                    else if (text.isEmpty())
+                        m_project->clearFieldOverride(el.fieldKey);
+                    else
+                        m_project->setOverride(el.fieldKey, text);
+                    return;
+                }
+            });
+    connect(m_watermarkPanel, &WatermarkPanel::elementSelected, m_canvas,
+            &PreviewCanvas::setSelectedElement);
+    connect(m_watermarkPanel, &WatermarkPanel::elementStyleChanged, m_project,
+            &ProjectController::setElementStyle);
+    connect(m_watermarkPanel, &WatermarkPanel::elementResetPositionRequested,
+            m_project, &ProjectController::resetElementPosition);
+    connect(m_watermarkPanel, &WatermarkPanel::addCustomTextRequested, this,
+            [this] {
+                const QUuid id = m_project->addCustomText();
+                if (id.isNull()) {
+                    showToast(tr("自定义文本最多 5 条"));
+                    return;
+                }
+                refreshWatermarkPanel();
+            });
+    connect(m_watermarkPanel, &WatermarkPanel::removeCustomTextRequested,
+            this, [this](const QUuid &id) {
+                m_project->removeElement(id);
+                refreshWatermarkPanel();
+            });
+    connect(m_watermarkPanel, &WatermarkPanel::applyRequested, this,
+            [this](ApplyScope scope) {
+                int targetCount = 0;
+                switch (scope) {
+                case ApplyScope::Current:
+                    targetCount = 1;
+                    break;
+                case ApplyScope::Selected:
+                    targetCount = m_project->selection().size();
+                    break;
+                case ApplyScope::All:
+                    targetCount = m_project->documents().size();
+                    break;
+                }
+                if (targetCount <= 0)
+                    return;
+                QMessageBox box(this);
+                box.setWindowTitle(tr("批量应用"));
+                box.setText(tr("将把当前照片的模板与水印设置应用到 %1 张照片？")
+                                .arg(targetCount));
+                box.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+                box.button(QMessageBox::Yes)->setText(tr("应用"));
+                auto *keepPos =
+                    new QCheckBox(tr("保留已手动调整的位置"), &box);
+                keepPos->setChecked(true);
+                box.setCheckBox(keepPos);
+                if (box.exec() != QMessageBox::Yes)
+                    return;
+                const int applied = m_project->applyCurrentTo(
+                    scope, keepPos->isChecked());
+                showToast(applied > 0
+                              ? tr("已应用到 %1 张照片 · 可撤销")
+                                    .arg(applied)
+                              : tr("没有需要应用的照片"));
+            });
 
     updateEmptyState();
     setWindowTitle("FrameXT");
@@ -401,14 +525,10 @@ QWidget *MainWindow::buildRightPanel()
     templateContent->setEnabled(false);
     layout->addWidget(createCard(tr("模板"), QString(), templateContent));
 
-    // 水印内容卡：开关行列表（3.5 第二批落地完整交互）
-    auto *watermarkContent = new QWidget;
-    watermarkContent->setObjectName("cardBody");
-    auto *watermarkLayout = new QVBoxLayout(watermarkContent);
-    watermarkLayout->setContentsMargins(0, 0, 0, 0);
-    watermarkLayout->addWidget(createHintLabel(
-        tr("导入照片后，可在此逐项开启\n机型 / 镜头 / 参数 / 自定义文本等水印内容")));
-    layout->addWidget(createCard(tr("水印内容"), QString(), watermarkContent), 1);
+    // 水印内容面板（3.5 第二批：开关行 + 行内编辑 + 样式区 + 应用范围；
+    // 面板自带标题行，不用 createCard 重复包标题）
+    m_watermarkPanel = new WatermarkPanel(panel);
+    layout->addWidget(m_watermarkPanel, 1);
 
     return panel;
 }
@@ -459,6 +579,80 @@ void MainWindow::refreshBasicInfo()
     m_importSummary->setText(tr("已选 %1 张").arg(m_project->documents().size()));
 }
 
+void MainWindow::refreshWatermarkPanel()
+{
+    const PhotoDocument *doc = m_project->current();
+    if (!doc) {
+        m_watermarkPanel->setElements({}, {}, 0);
+        return;
+    }
+    // 行内编辑框当前值 = 渲染同源显示值（覆盖层已合并）
+    const auto resolver = m_project->fieldResolver(*doc);
+    QHash<QUuid, QString> values;
+    for (const Element &el : doc->templateState.elements) {
+        const QString v = el.fieldKey.isEmpty() ? el.literal
+                                                : resolver(el.fieldKey);
+        values.insert(el.id, v);
+    }
+    m_watermarkPanel->setElements(doc->templateState.elements, values,
+                                  m_project->documents().size());
+}
+
+void MainWindow::showElementContextMenu(const QUuid &elementId,
+                                        const QPoint &globalPos)
+{
+    if (elementId.isNull())
+        return;
+    QMenu menu(this);
+    QAction *raiseAction =
+        menu.addAction(tr("置顶"), this, [this, elementId] {
+            m_project->raiseElement(elementId);
+        });
+    QAction *resetAction =
+        menu.addAction(tr("还原位置"), this, [this, elementId] {
+            m_project->resetElementPosition(elementId);
+        });
+    bool isCustom = false;
+    bool atCustom = false;
+    for (const Element &el : m_project->current()->templateState.elements) {
+        if (el.id == elementId) {
+            isCustom = el.kind == ElementKind::Text && el.fieldKey.isEmpty();
+            atCustom = el.hasCustomPosition;
+            break;
+        }
+    }
+    resetAction->setEnabled(atCustom);
+    menu.addSeparator();
+    if (isCustom) {
+        menu.addAction(tr("删除"), this, [this, elementId] {
+            m_project->removeElement(elementId);
+            refreshWatermarkPanel();
+        });
+    } else {
+        menu.addAction(tr("隐藏"), this, [this, elementId] {
+            m_project->setElementVisible(elementId, false);
+        });
+    }
+    menu.exec(globalPos);
+}
+
+void MainWindow::showToast(const QString &text)
+{
+    if (!m_toast) {
+        m_toast = new QLabel(this);
+        m_toast->setObjectName("toast");
+        m_toastTimer = new QTimer(this);
+        m_toastTimer->setSingleShot(true);
+        connect(m_toastTimer, &QTimer::timeout, m_toast, &QWidget::hide);
+    }
+    m_toast->setText(text);
+    m_toast->adjustSize();
+    m_toast->move((width() - m_toast->width()) / 2, height() - 64);
+    m_toast->raise();
+    m_toast->show();
+    m_toastTimer->start(3000);
+}
+
 void MainWindow::updateEmptyState()
 {
     const bool empty = m_project->documents().isEmpty();
@@ -466,6 +660,8 @@ void MainWindow::updateEmptyState()
     // 空态禁用只能作用于控件，不能作用于布局（M0 复现：布局被禁用后
     // 停止排列子项，提示文字停留左上角）
     m_templateCombo->parentWidget()->setEnabled(!empty);
+    if (m_watermarkPanel)
+        m_watermarkPanel->setEnabled(!empty);
     m_importSummary->setText(empty
                                  ? tr("尚未导入照片")
                                  : tr("已选 %1 张")

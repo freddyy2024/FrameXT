@@ -6,6 +6,7 @@
 #include "metadata/BrandRegistry.h"
 #include "metadata/FieldRegistry.h"
 #include "render/BuiltinTemplates.h"
+#include "render/CanvasGeometry.h"
 
 namespace fxt {
 
@@ -194,6 +195,17 @@ void ProjectController::clearOverrides()
     scheduleRender();
 }
 
+void ProjectController::clearFieldOverride(const QString &fieldKey)
+{
+    PhotoDocument *doc = current();
+    if (!doc || !doc->overrides.values.contains(fieldKey))
+        return;
+    pushUndo(doc->id);
+    doc->overrides.values.remove(fieldKey);
+    emit documentChanged(doc->id);
+    scheduleRender();
+}
+
 void ProjectController::setTemplateId(const QString &templateId)
 {
     PhotoDocument *doc = current();
@@ -233,6 +245,24 @@ void ProjectController::moveElement(const QUuid &elementId, Anchor anchor,
             pushUndo(doc->id);
             el.anchor = anchor;
             el.offset = offset;
+            el.hasCustomPosition = true;
+            emit documentChanged(doc->id);
+            scheduleRender();
+            return;
+        }
+    }
+}
+
+void ProjectController::nudgeElement(const QUuid &elementId,
+                                     const QPointF &offsetDelta)
+{
+    PhotoDocument *doc = current();
+    if (!doc)
+        return;
+    for (Element &el : doc->templateState.elements) {
+        if (el.id == elementId) {
+            pushUndo(doc->id);
+            el.offset += offsetDelta;
             el.hasCustomPosition = true;
             emit documentChanged(doc->id);
             scheduleRender();
@@ -294,6 +324,71 @@ void ProjectController::resetElementPosition(const QUuid &elementId)
             return;
         }
     }
+}
+
+void ProjectController::setElementLiteral(const QUuid &elementId,
+                                          const QString &text)
+{
+    PhotoDocument *doc = current();
+    if (!doc)
+        return;
+    for (Element &el : doc->templateState.elements) {
+        if (el.id == elementId && el.fieldKey.isEmpty()) {
+            if (el.literal == text)
+                return;
+            pushUndo(doc->id);
+            el.literal = text;
+            emit documentChanged(doc->id);
+            scheduleRender();
+            return;
+        }
+    }
+}
+
+void ProjectController::removeElement(const QUuid &elementId)
+{
+    PhotoDocument *doc = current();
+    if (!doc)
+        return;
+    QList<Element> &elements = doc->templateState.elements;
+    for (int i = 0; i < elements.size(); ++i) {
+        if (elements.at(i).id == elementId) {
+            pushUndo(doc->id);
+            elements.removeAt(i);
+            emit documentChanged(doc->id);
+            scheduleRender();
+            return;
+        }
+    }
+}
+
+QUuid ProjectController::addCustomText()
+{
+    PhotoDocument *doc = current();
+    if (!doc)
+        return {};
+    // 上限 5 条自定义文本（04-UI §3.5）
+    int freeCount = 0;
+    for (const Element &el : doc->templateState.elements) {
+        if (el.kind == ElementKind::Text && el.fieldKey.isEmpty())
+            ++freeCount;
+    }
+    if (freeCount >= 5)
+        return {};
+
+    pushUndo(doc->id);
+    Element el;
+    el.id = QUuid::createUuid();
+    el.kind = ElementKind::Text;
+    el.fieldKey.clear();
+    el.literal = tr("自定义文本");
+    el.anchor = Anchor::BottomLeft;
+    el.offset = QPointF(0.03, -0.03);   // 左下角内缩（视觉默认位）
+    el.hasCustomPosition = true;        // 自定义文本天然脱离行组
+    doc->templateState.elements.append(el);
+    emit documentChanged(doc->id);
+    scheduleRender();
+    return el.id;
 }
 
 // —— 撤销 ——
@@ -390,6 +485,41 @@ RenderRequest ProjectController::renderRequest(const PhotoDocument &doc) const
     return req;
 }
 
+QList<QPair<QUuid, ElementLayout>> ProjectController::elementLayouts()
+{
+    PhotoDocument *doc = current();
+    if (!doc || doc->meta.pixelSize.isEmpty())
+        return {};
+    // 与 RenderPipeline S2/S5 同源：预览缩放尺寸 → 画布 plan → 布局解算
+    const qreal scale = previewScaleFor(doc->meta.pixelSize);
+    const QSize scaled(qRound(doc->meta.pixelSize.width() * scale),
+                       qRound(doc->meta.pixelSize.height() * scale));
+    const CanvasPlan plan =
+        CanvasGeometry::plan(doc->templateState.templateId, scaled);
+    if (plan.canvasSize.isEmpty())
+        return {};
+
+    const QHash<QUuid, ElementLayout> resolved = LayoutEngine::resolve(
+        doc->templateState.elements,
+        BuiltinTemplates::defaultRows(doc->templateState.elements), plan,
+        fieldResolver(*doc),
+        [this, doc](const QString &key) {
+            Q_UNUSED(key);
+            return resolveLogo(*doc);
+        });
+
+    // 按元素列表序输出（前 = 上层，画布命中测试从上层往下）
+    QList<QPair<QUuid, ElementLayout>> ordered;
+    for (const Element &el : doc->templateState.elements) {
+        if (!el.visible)
+            continue;   // 不可见元素不参与画布命中
+        const auto it = resolved.constFind(el.id);
+        if (it != resolved.constEnd())
+            ordered.append({ el.id, it.value() });
+    }
+    return ordered;
+}
+
 void ProjectController::requestPreview()
 {
     m_renderDebounce.start();   // 250ms 防抖合并连续修改（§4.2）
@@ -438,7 +568,13 @@ void ProjectController::setWatermarkHidden(bool hidden)
     if (m_watermarkHidden == hidden)
         return;
     m_watermarkHidden = hidden;
+    emit watermarkHiddenChanged(hidden);
     renderNow();
+}
+
+void ProjectController::toggleWatermarkHidden()
+{
+    setWatermarkHidden(!m_watermarkHidden);
 }
 
 FieldValueResolver ProjectController::fieldResolver(const PhotoDocument &doc) const

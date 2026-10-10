@@ -338,3 +338,41 @@ QScrollBar::add-page, QScrollBar::sub-page {
 QSplitter::handle {
     background: #F5F6F8;
 }
+
+/* ---------- 画布交互层（3.4/3.5 第二批） ---------- */
+
+/* 批量操作结果提示（toast，3s 自动消失） */
+#toast {
+    background: rgba(31, 35, 41, 0.92);
+    color: #FFFFFF;
+    font-size: 12px;
+    padding: 8px 16px;
+    border-radius: 16px;
+}
+
+/* 水印内容行（§3.5 开关行） */
+#watermarkRow {
+    border-radius: 4px;
+}
+#watermarkRow:hover {
+    background: #F5F6F8;
+}
+#watermarkRow QLineEdit {
+    background: #FFFFFF;
+    border: 1px solid #D8DCE2;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 12px;
+}
+#watermarkRow QLineEdit:focus {
+    border-color: #6C5CE7;
+}
+
+/* 选中元素样式区 */
+#styleGroup::title {
+    subcontrol-origin: margin;
+    left: 8px;
+    padding: 0 4px;
+    color: #5A6068;
+    font-size: 12px;
+}

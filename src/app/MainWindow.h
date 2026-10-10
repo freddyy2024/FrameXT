@@ -7,6 +7,7 @@
 
 class QComboBox;
 class QSplitter;
+class QTimer;
 class QToolButton;
 
 namespace fxt {
@@ -16,6 +17,7 @@ class PhotoListPanel;
 class PreviewCanvas;
 class ProjectController;
 class TitleBar;
+class WatermarkPanel;
 
 // 主窗口（04-UI设计.md §3）：恒定主界面三态（编辑/无图空态/纯看图）。
 // 布局 = 标题栏 + 三栏 QSplitter（左：属性/导入导出；中：预览画布；
@@ -58,6 +60,9 @@ private:
     QWidget *buildBottomPanel();
     void importPaths(const QStringList &paths);
     void refreshBasicInfo();
+    void refreshWatermarkPanel();
+    void showElementContextMenu(const QUuid &elementId, const QPoint &globalPos);
+    void showToast(const QString &text);
     void updateEmptyState();
     void confirmClear();
 
@@ -71,11 +76,14 @@ private:
     // 面板
     BasicInfoPanel *m_basicInfo = nullptr;
     PhotoListPanel *m_photoList = nullptr;
+    WatermarkPanel *m_watermarkPanel = nullptr;
     PreviewCanvas *m_canvas = nullptr;
     QLabel *m_canvasHint = nullptr;      // 底部工具条提示
     QComboBox *m_templateCombo = nullptr;
     QToolButton *m_compareButton = nullptr;
     QLabel *m_importSummary = nullptr;   // 左栏导入状态行
+    QLabel *m_toast = nullptr;           // 批量操作结果提示（3s 自动消失）
+    QTimer *m_toastTimer = nullptr;
 };
 
 } // namespace fxt
