@@ -24,7 +24,7 @@ echo [ERROR] Unknown step: %STEP%
 exit /b 1
 
 :configure
-cmake --preset win-debug -DVCPKG_MANIFEST_INSTALL=OFF || exit /b 1
+cmake --preset win-debug || exit /b 1
 if not "%STEP%"=="all" exit /b 0
 
 :build

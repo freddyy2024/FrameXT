@@ -8,7 +8,7 @@
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build/${presetName}",
             "environment": {
-                "VCPKG_ROOT": "D:/MyApp/vcpkg-2024.11.16"
+                "VCPKG_ROOT": "D:/MyApp/vcpkg"
             },
             "cacheVariables": {
                 "CMAKE_PREFIX_PATH": "D:/MyApp/Qt/6.11.1/msvc2022_64",

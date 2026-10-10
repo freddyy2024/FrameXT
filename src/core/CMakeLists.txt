@@ -4,6 +4,9 @@
 add_library(framext_core STATIC
     AppInfo.cpp
     model/ModelIo.cpp
+    metadata/ExifFormatter.cpp
+    metadata/FieldRegistry.cpp
+    metadata/ExifReader.cpp
     render/CanvasGeometry.cpp
     render/BackdropRenderer.cpp
     render/PhotoDecoder.cpp
@@ -15,7 +18,9 @@ add_library(framext_core STATIC
 )
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui)
-target_link_libraries(framext_core PUBLIC Qt6::Core Qt6::Gui)
+# exiv2（GPL-2.0-or-later；项目 GPLv3+ 开源，许可兼容——02-技术设计 §2.3）
+find_package(exiv2 CONFIG REQUIRED)
+target_link_libraries(framext_core PUBLIC Qt6::Core Qt6::Gui exiv2lib)
 
 target_include_directories(framext_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

@@ -19,6 +19,7 @@ endif()
 #   CMAKE_PREFIX_PATH    -> Qt 6.11.1（msvc2022_64）
 #   CMAKE_TOOLCHAIN_FILE -> vcpkg（exiv2 自 M2 元数据里程碑启用）
 
+add_subdirectory(src/platform)
 add_subdirectory(src/core)
 add_subdirectory(src/app)
 
