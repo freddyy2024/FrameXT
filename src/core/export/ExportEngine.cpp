@@ -2,6 +2,7 @@
 
 #include <QBuffer>
 #include <QDate>
+#include <QImageReader>
 #include <QFile>
 #include <QFileInfo>
 #include <QSaveFile>
@@ -96,6 +97,8 @@ QString ExportEngine::buildFileName(const PhotoDocument &doc,
         break;
     case NamingMode::CustomPattern: {
         name = options.customPattern;
+        if (name.trimmed().isEmpty())
+            name = QStringLiteral("{name}");   // 空 pattern → ".jpg" 怪名（A7）
         const int n = options.indexStart + index;
         name.replace(QStringLiteral("{name}"), base);
         name.replace(QStringLiteral("{index}"),
@@ -203,6 +206,20 @@ ExportEngine::ItemResult ExportEngine::exportSingle(const ItemRequest &req)
             encoded = MetadataMuxer::composePngFromRaw(encoded, tiff,
                                                        req.doc.meta.iccProfile,
                                                        policy);
+    }
+
+    // —— 完整性校验（E10：可解码回读；写成功 ≠ 编码产物有效）。
+    // canRead 仅验头部签名（毫秒级）——足以拦截空产物/坏魔数；
+    // 全图解码 45MP ~300ms/张，60 张批次代价过高，不在此做
+    {
+        QBuffer verify(&encoded);
+        verify.open(QIODevice::ReadOnly);
+        QImageReader reader(&verify);
+        if (!reader.canRead()) {
+            result.stage = QStringLiteral("encode");
+            result.error = QStringLiteral("导出文件完整性校验未通过");
+            return result;
+        }
     }
 
     // —— 落盘（QSaveFile 原子写；失败重试 1 次，§4.7）——

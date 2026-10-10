@@ -82,6 +82,13 @@ bool ExifReader::read()
             return false;
         }
         image->readMetadata();
+        // ICC 配置文件全字节提取（E2 导出保真：跨格式导出时经
+        // PhotoMeta.iccProfile 重建路径回写；M2 遗留——评审 A3 实锤
+        // 全仓库无写入点，跨格式导出色彩配置文件静默丢失）
+        const Exiv2::DataBuf &icc = image->iccProfile();
+        if (icc.size() > 0)
+            m_icc = QByteArray(reinterpret_cast<const char *>(icc.c_data()),
+                               int(icc.size()));
         const Exiv2::ExifData &exif = image->exifData();
         for (const Exiv2::Exifdatum &datum : exif) {
             const QString key = QString::fromStdString(datum.key());

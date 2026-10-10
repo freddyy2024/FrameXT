@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QByteArray>
 #include <QSize>
 #include <QString>
 
@@ -18,6 +19,9 @@ public:
     bool read();   // 成功后 raw() 可用
 
     const RawExif &raw() const { return m_raw; }
+    // ICC 配置文件全字节（M4 起提取；无 ICC 源为空——导出重建路径按
+    // 「无则不写」处理）
+    const QByteArray &iccProfile() const { return m_icc; }
     const QString &error() const { return m_error; }
 
     // 解码后原图尺寸（Exif.Image 优先，SensorPixel 计量兜底）；未知返回 0×0
@@ -26,6 +30,7 @@ public:
 private:
     QString m_filePath;
     RawExif m_raw;
+    QByteArray m_icc;
     QString m_error;
 };
 

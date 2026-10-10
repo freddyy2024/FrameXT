@@ -52,6 +52,8 @@ ImportItem importOne(const QString &path)
             item.doc.meta.exif.make = brand.value;
         item.doc.meta.hasGps =
             raw.contains(QStringLiteral("Exif.GPSInfo.GPSLatitude"));
+        // ICC 全字节（跨格式导出重建路径的保真材料，评审 A3）
+        item.doc.meta.iccProfile = reader.iccProfile();
     }
     // Exif 缺失不阻塞导入（无水印照片合法）；默认模板状态每张独立持有（§4.1）
     const auto spec = BuiltinTemplates::defaultSpec(QStringLiteral("bottom"));

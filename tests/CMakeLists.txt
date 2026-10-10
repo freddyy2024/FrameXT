@@ -74,6 +74,14 @@ target_include_directories(perf_export PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/core)
 target_link_libraries(perf_export PRIVATE framext_core Qt6::Core Qt6::Gui Qt6::Concurrent Qt6::Test)
 
+# §6.1 指标 1：导入 100 张 45MP ≤15s（样本与 perf_export 共享 FXT_PERF_DIR）
+add_executable(perf_import perf_import.cpp
+    ../src/app/controllers/ImportController.cpp)
+target_include_directories(perf_import PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/app
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/core)
+target_link_libraries(perf_import PRIVATE framext_core Qt6::Core Qt6::Gui Qt6::Concurrent Qt6::Test)
+
 add_test(NAME test_samples COMMAND test_samples)
 add_test(NAME test_brand COMMAND test_brand)
 add_test(NAME test_projectcontroller COMMAND test_projectcontroller)

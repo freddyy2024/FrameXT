@@ -29,6 +29,7 @@ struct ItemResult
 {
     bool ok = false;
     bool skipped = false;       // 同名冲突按 Skip 策略跳过（非失败）
+    bool canceled = false;      // 取消窗口内未派发（非失败，勿重试）
     QString sourcePath;
     QString outputPath;
     QString stage;              // 失败阶段：read/render/encode/write

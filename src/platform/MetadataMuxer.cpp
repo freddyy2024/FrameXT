@@ -72,12 +72,18 @@ double dpiFromTiff(const QByteArray &tiff)
         const quint16 tag = u16(pos);
         if (tag == 0x011A) {   // XResolution
             const quint32 vOff = u32(pos + 8);
-            if (qint64(vOff) + 8 > qint64(tiff.size()))
-                return 0;
+            if (qint64(vOff) + 8 > qint64(tiff.size())) {
+                // 该 entry 损坏：跳过继续扫 ResolutionUnit，不让单一
+                // 畸形 tag 吞掉整个 DPI 解析（评审 A4 附带项）
+                continue;
+            }
             num = u32(int(vOff));
             den = u32(int(vOff) + 4);
         } else if (tag == 0x0128) {   // ResolutionUnit
-            unit = u32(pos + 8);
+            // SHORT(3) count=1 内联值——必须按 u16 读：大端（MM）源
+            // 用 u32 读整字会得 0x00020000=131072，switch 不命中 →
+            // PNG 输出错写 300 / JPEG 静默放弃覆写（评审 A4）
+            unit = u16(pos + 8);
         }
     }
     if (den == 0)

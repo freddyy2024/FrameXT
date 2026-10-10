@@ -886,8 +886,18 @@ void MainWindow::startExport(const ExportOptions &options)
 {
     if (m_export->busy())
         return;
+    if (m_import->busy()) {
+        // 技术设计 §4.7：导入中锁导出（快照不完整会造成统计失实）
+        showToast(tr("正在导入照片，请等待完成后再导出"));
+        return;
+    }
     if (options.outputDir.isEmpty()) {
         showToast(tr("请先选择导出目录"));
+        return;
+    }
+    if (!QDir(options.outputDir).exists()) {
+        // 预扫失败不该静默（评审交叉项：目录失效无反馈）
+        showToast(tr("导出目录不存在：%1").arg(options.outputDir));
         return;
     }
 
@@ -907,13 +917,41 @@ void MainWindow::startExport(const ExportOptions &options)
         return;
     }
 
+    // 两段式：preplan 预分配（AskEach 在此逐个询问）→ Overwrite 破坏性
+    // 确认（§7.3：覆盖类操作必经确认；评审 P0）→ 派发
+    ExportController::PreplanResult plan = m_export->preplan(
+        docs, resolvers, logos, options, [this](const QString &name) {
+            return askConflictDialog(this, name);
+        });
+    if (!plan.error.isEmpty()) {
+        showToast(plan.error);
+        return;
+    }
+    if (plan.jobs.isEmpty() && plan.skipped.isEmpty()) {
+        showToast(tr("没有可导出的照片"));
+        return;
+    }
+    if (!plan.overwriteHits.isEmpty()) {
+        // §5.3 汇总确认（列出将覆盖的文件 + 红色警示）
+        QStringList shown = plan.overwriteHits.mid(0, 8);
+        if (plan.overwriteHits.size() > 8)
+            shown += QStringLiteral("…等共 %1 个")
+                         .arg(plan.overwriteHits.size());
+        const auto answer = QMessageBox::warning(
+            this, tr("文件名冲突"),
+            tr("目标目录已有 %1 个同名文件，将被覆盖：\n%2\n\n覆盖后无法恢复，"
+               "确定继续吗？")
+                .arg(plan.overwriteHits.size())
+                .arg(shown.join(QStringLiteral("\n"))),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if (answer != QMessageBox::Yes)
+            return;
+    }
+
     saveExportPrefs(options);   // 导出预设持久化（§4.8）
     m_exportDone = 0;
     m_exportPanel->setExporting(true);
-    m_export->start(docs, resolvers, logos, options,
-                    [this](const QString &name) {
-                        return askConflictDialog(this, name);
-                    });
+    m_export->runPrepared(std::move(plan));
 }
 
 void MainWindow::showExportFinished(
@@ -956,7 +994,8 @@ void MainWindow::showExportFinished(
     layout->setContentsMargins(24, 20, 24, 16);
     layout->setSpacing(8);
 
-    auto *head = new QLabel(tr("✓ 导出完成"), &done);
+    auto *head = new QLabel(ok > 0 ? tr("✓ 导出完成") : tr("导出失败"),
+                            &done);
     head->setObjectName("panelTitle");
     head->setStyleSheet(QStringLiteral("color: %1")
                             .arg(ok > 0 ? QStringLiteral("#2E9E5B")
@@ -968,11 +1007,19 @@ void MainWindow::showExportFinished(
                         .arg(skipped)
                         .arg(failed);
     if (ok > 0) {
+        // 预设注记（§5.2 示例含「视觉无损」语义标注）
+        QString presetNote;
+        switch (m_exportPanel->currentOptions().preset) {
+        case QualityPreset::VisualLossless: presetNote = tr("视觉无损"); break;
+        case QualityPreset::Balanced: presetNote = tr("平衡"); break;
+        case QualityPreset::Custom: presetNote = tr("自定义"); break;
+        }
         stats += QLatin1Char('\n')
-                 + tr("体积：%1 → %2")
+                 + tr("体积：%1 → %2 MB（%3）")
                        .arg(srcBytes / 1048576.0, 0, 'f', 1)
                        .arg(outBytes / 1048576.0, 0, 'f', 1)
-                 + tr(" MB") + tr("  ·  %1s")
+                       .arg(presetNote)
+                 + tr("  ·  %1s")
                        .arg(elapsedMs / 1000.0, 0, 'f', 1);
     }
     auto *statLabel = new QLabel(stats, &done);
@@ -1092,22 +1139,26 @@ void MainWindow::saveDiagnostics(
     const QList<ExportEngine::ItemResult> &failedItems)
 {
     // 诊断包 = zip（失败文件副本 + 错误日志 + 版本信息），R5 场景：
-    // 用户自助打包发 issue。zip 用系统自带 tar.exe（Windows 10+
-    // bsdtar，-a 按扩展名选 zip 格式），零依赖。
-    const QString target = QFileDialog::getSaveFileName(
+    // 用户自助打包发 issue。zip 用系统自带 tar.exe（Windows 10 1803+
+    // bsdtar；System32 绝对路径防 PATH 上 GNU tar 冒充——GNU tar 不认
+    // zip 后缀直接失败，评审 P1-5）。
+    QString target = QFileDialog::getSaveFileName(
         this, tr("保存诊断包"),
         QStringLiteral("FrameXT-诊断-%1.zip")
             .arg(QDate::currentDate().toString(QStringLiteral("yyyyMMdd"))),
         tr("诊断包 (*.zip)"));
     if (target.isEmpty())
         return;
+    if (!target.endsWith(QStringLiteral(".zip"), Qt::CaseInsensitive))
+        target += QStringLiteral(".zip");   // tar -a 按后缀定格式
 
-    QTemporaryDir staging;
-    if (!staging.isValid()) {
+    QTemporaryDir *staging = new QTemporaryDir;
+    if (!staging->isValid()) {
+        delete staging;
         showToast(tr("创建临时目录失败"));
         return;
     }
-    const QDir root(staging.path());
+    const QDir root(staging->path());
 
     // 1) 失败文件副本（≤20MB/个：超大源截断拷贝，日志注明）
     const QDir filesDir = root.mkpath(QStringLiteral("files"))
@@ -1115,17 +1166,22 @@ void MainWindow::saveDiagnostics(
                               : QDir();
     qint64 copied = 0;
     QSet<QString> seen;
+    QStringList truncated;
     for (const auto &r : failedItems) {
         if (seen.contains(r.sourcePath))
             continue;
         seen.insert(r.sourcePath);
         QFile src(r.sourcePath);
-        const qint64 size = src.size();
         if (!src.open(QIODevice::ReadOnly))
             continue;
         constexpr qint64 kMaxPerFile = 20LL * 1024 * 1024;
+        const qint64 size = src.size();
         const QByteArray bytes = src.read(kMaxPerFile);
         src.close();
+        if (size > kMaxPerFile)
+            truncated += QStringLiteral("%1（%2MB，仅收录前 20MB）")
+                             .arg(QFileInfo(r.sourcePath).fileName())
+                             .arg(size / 1048576);
         const QString name = QStringLiteral("%1_%2")
                                  .arg(copied)
                                  .arg(QFileInfo(r.sourcePath).fileName());
@@ -1137,7 +1193,7 @@ void MainWindow::saveDiagnostics(
         }
     }
 
-    // 2) 错误日志 + 版本信息
+    // 2) 错误日志 + 版本信息 + 截断清单
     QFile log(root.filePath(QStringLiteral("errors.txt")));
     if (log.open(QIODevice::WriteOnly | QIODevice::Text)) {
         QTextStream ts(&log);
@@ -1145,30 +1201,42 @@ void MainWindow::saveDiagnostics(
         ts << "FrameXT " << fxt::AppInfo::versionText() << "\n";
         ts << QLocale().system().name() << " / "
            << QSysInfo::prettyProductName() << "\n\n";
+        if (!truncated.isEmpty())
+            ts << "[超大文件截断收录]\n"
+               << truncated.join(QStringLiteral("\n")) << "\n\n";
         for (const auto &r : failedItems) {
             ts << r.sourcePath << "\n  stage=" << r.stage
                << "\n  error=" << r.error << "\n\n";
         }
     }
 
-    // 3) tar -a 打 zip（bsdtar：-C 切根，包内路径干净）
-    const QString listArg = staging.path();
-    QProcess tar;
-    tar.start(QStringLiteral("tar"),
-              { QStringLiteral("-a"), QStringLiteral("-c"),
-                QStringLiteral("-f"), target,
-                QStringLiteral("-C"), listArg,
-                QStringLiteral("files"), QStringLiteral("errors.txt") });
-    if (!tar.waitForStarted(3000) || !tar.waitForFinished(60000)
-        || tar.exitCode() != 0) {
-        showToast(tr("诊断包生成失败（%1）")
-                      .arg(QString::fromLocal8Bit(tar.readAllStandardError()
-                                                      .left(200))));
-        return;
-    }
-    showToast(tr("诊断包已保存：%1（含 %2 个失败文件副本）")
-                  .arg(QFileInfo(target).fileName())
-                  .arg(copied));
+    // 3) tar 异步打包（评审 P1-4：同步 waitForFinished 冻结 UI 最长 63s；
+    // staging 堆分配随信号归档释放，lambda 持指针）
+    QProcess *tar = new QProcess(this);
+    tar->start(QStringLiteral("C:/Windows/System32/tar.exe"),
+               { QStringLiteral("-a"), QStringLiteral("-c"),
+                 QStringLiteral("-f"), target,
+                 QStringLiteral("-C"), staging->path(),
+                 QStringLiteral("files"), QStringLiteral("errors.txt") });
+    connect(tar, &QProcess::finished, this,
+            [this, tar, staging, target, copied](int code,
+                                                 QProcess::ExitStatus) {
+                tar->deleteLater();
+                delete staging;
+                if (code != 0) {
+                    showToast(tr("诊断包生成失败（tar 退出码 %1）").arg(code));
+                    return;
+                }
+                showToast(tr("诊断包已保存：%1（含 %2 个失败文件副本）")
+                              .arg(QFileInfo(target).fileName())
+                              .arg(copied));
+            });
+    connect(tar, &QProcess::errorOccurred, this, [this, staging, tar] {
+        tar->deleteLater();
+        delete staging;
+        showToast(tr("诊断包生成失败（本机 tar.exe 不可用，"
+                     "需 Windows 10 1803+）"));
+    });
 }
 
 void MainWindow::restoreExportPrefs()
@@ -1277,8 +1345,23 @@ void MainWindow::dropEvent(QDropEvent *event)
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    // §5.6 退出确认：有照片且未导出时挽留（照片工具最高频数据丢失场景）
-    if (!m_project->documents().isEmpty() && !m_exitConfirmed) {
+    // 导出进行中关窗（评审 P0-1 实锤 UAF：worker 持 controller 引用，
+    // 直接析构 = 崩溃）：先单独确认，同意则 cancel + 析构内汇合等待
+    if (m_export && m_export->busy()) {
+        const auto answer = QMessageBox::question(
+            this, tr("正在导出"),
+            tr("导出进行中（已完成 %1 张）。退出将取消剩余任务，"
+               "已导出的文件保留。确定退出吗？").arg(m_exportDone),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if (answer != QMessageBox::Yes) {
+            event->ignore();
+            return;
+        }
+        m_export->cancel();
+        // 不在此处等待：析构链 ExportController::~ExportController 会
+        // waitForFinished 汇合（worker 引用存活到析构体内）
+    } else if (!m_project->documents().isEmpty() && !m_exitConfirmed) {
+        // §5.6 退出确认：有照片且未导出时挽留（照片工具最高频数据丢失场景）
         const auto answer = QMessageBox::question(
             this, tr("退出 FrameXT"),
             tr("还有 %1 张照片未导出。确定退出吗？")

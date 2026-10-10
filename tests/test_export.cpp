@@ -17,10 +17,14 @@
 #include "controllers/ExportController.h"
 #include "export/ExportEngine.h"
 #include "export/JpegEncoder.h"
+#include "metadata/ExifReader.h"
 #include "metadata/FieldRegistry.h"
+#include "platform/ExifIfdEditor.h"
 #include "platform/JpegSegmentIO.h"
 #include "platform/PngChunkIO.h"
 #include "render/BuiltinTemplates.h"
+
+#include <QtEndian>
 
 #include <exiv2/exiv2.hpp>
 
@@ -154,6 +158,17 @@ private slots:
     void allOrientationsExportToUpright();
     // ExportController 冲突策略 + 完成汇总
     void conflictPolicies();
+    // —— 评审修复钉子 ——
+    // A2：批内同基名 × Overwrite → 让位重命名（双写=静默丢文件的回归钉）
+    void overwriteInBatchCollision();
+    // A3：ICC 跨格式保真（导入提取 → JPEG→PNG 重建路径写 iCCP）
+    void iccCrossFormatRoundTrip();
+    // A4：大端（MM）Exif 的 DPI 解析（ResolutionUnit 按 u16 读）
+    void bigEndianDpi();
+    // A5：源 Software 比新值短 → 保留原值（截出 "Fra" 残串的回归钉）
+    void setAsciiShortValueKeepsOriginal();
+    // A7：空自定义 pattern 兜底（产出 ".jpg" 怪名的回归钉）
+    void emptyPatternFallsBack();
     // 取消语义：立即取消不崩溃、finished 必达（时序宽松——小图可能全完成）
     void cancelDoesNotHang();
 };
@@ -597,6 +612,252 @@ void TestExport::cancelDoesNotHang()
     ctl.cancel();   // 立即取消（时序宽松：可能 0..4 张完成）
     loop.exec();
     QVERIFY(gotFinished);   // finished 必达（不悬挂）；文件系统无半写文件
+}
+
+// —— 评审修复钉子 ——
+
+namespace {
+
+// 大端（MM）最小 Exif TIFF：IFD0 = XResolution(72/1) + ResolutionUnit(2)。
+// 全手工布局（46 字节），字节级断言先自证构造，再测 dpiFromTiff 语义
+// （经 composePngFromRaw → pHYs 间接验证；A4：unit 必须 u16 读）
+QByteArray makeMmTiff72Dpi()
+{
+    QByteArray t;
+    t.append("MM");
+    t.append(char(0x00));
+    t.append(char(0x2A));
+    const auto put16 = [&t](int v) {
+        t.append(char(v >> 8));
+        t.append(char(v & 0xFF));
+    };
+    const auto put32 = [&t](int v) {
+        t.append(char((v >> 24) & 0xFF));
+        t.append(char((v >> 16) & 0xFF));
+        t.append(char((v >> 8) & 0xFF));
+        t.append(char(v & 0xFF));
+    };
+    put32(8);              // IFD0 offset
+    put16(2);              // entry count
+    // entry1: XResolution tag=0x011A type=5(RATIONAL) count=1 off=38
+    put16(0x011A);
+    put16(5);
+    put32(1);
+    put32(38);
+    // entry2: ResolutionUnit tag=0x0128 type=3(SHORT) count=1 value=2 内联
+    put16(0x0128);
+    put16(3);
+    put32(1);
+    put16(2);
+    put16(0);              // 内联 SHORT 占满 4 字节
+    put32(0);              // next IFD = 0
+    put32(72);             // XResolution num=72
+    put32(1);              // den=1
+    return t;   // 长度断言由调用方做（QCOMPARE 宏含 return，不可入非 void 函数）
+}
+
+// 最小合法 ICC profile（128 字节空 header，size 字段自指）——仅用于
+// 验证 iCCP 字节的端到端搬运（内容语义由平台校验，非本测试范围）
+QByteArray makeMinimalIcc()
+{
+    QByteArray icc(128, char(0));
+    icc[0] = char(0); icc[1] = char(0); icc[2] = char(0); icc[3] = char(128);
+    return icc;
+}
+
+} // namespace
+
+void TestExport::overwriteInBatchCollision()
+{
+    // A2：不同目录同名导入 + KeepOriginal + Overwrite——旧实现双 worker
+    // 写同一目标（虚报成功 2、磁盘只剩 1）。修复后批内第二个让位 (1)
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    QList<PhotoDocument> docs;
+    QList<FieldValueResolver> resolvers;
+    QList<QImage> logos;
+    for (const char *sub : { "d1", "d2" }) {
+        QVERIFY(QDir().mkpath(dir.filePath(sub)));
+        const QString p = dir.filePath(
+            QStringLiteral("%1/same.jpg").arg(sub));
+        QImage im(100, 80, QImage::Format_ARGB32);
+        im.fill(Qt::blue);
+        im.save(p, "jpeg");
+        docs.append(makeDoc(p, im.size()));
+        resolvers.append(emptyResolver());
+        logos.append(QImage());
+    }
+
+    ExportOptions opt;
+    opt.outputDir = dir.filePath("out");
+    opt.naming = NamingMode::KeepOriginal;
+    opt.conflict = ConflictPolicy::Overwrite;   // 用户选覆盖
+    QVERIFY(QDir().mkpath(opt.outputDir));
+
+    ExportController ctl;
+    QEventLoop loop;
+    QList<ExportEngine::ItemResult> results;
+    QObject::connect(&ctl, &ExportController::finished, &loop,
+                     [&](const QList<ExportEngine::ItemResult> &r, bool,
+                         qint64) {
+                         results = r;
+                         loop.quit();
+                     });
+    QTimer::singleShot(20000, &loop, &QEventLoop::quit);
+    ctl.start(docs, resolvers, logos, opt);
+    loop.exec();
+
+    QCOMPARE(results.size(), 2);
+    int ok = 0;
+    QSet<QString> outputs;
+    for (const auto &r : results) {
+        if (r.ok)
+            ++ok;
+        outputs.insert(QFileInfo(r.outputPath).fileName());
+    }
+    QCOMPARE(ok, 2);
+    // 关键断言：两个输出路径必须不同（旧实现此处 size==1）
+    QCOMPARE(outputs.size(), 2);
+    QVERIFY(outputs.contains(QStringLiteral("same.jpg")));
+    QVERIFY(outputs.contains(QStringLiteral("same(1).jpg")));
+}
+
+void TestExport::iccCrossFormatRoundTrip()
+{
+    // A3：PhotoMeta.iccProfile 此前全仓库无写入点——跨格式导出 ICC
+    // 静默丢失。修复链路：ExifReader 提取 → ExportEngine 传
+    // composePngFromRaw → iCCP 落盘
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    QImage source(120, 90, QImage::Format_ARGB32);
+    source.fill(Qt::darkRed);
+    const QString srcPath = writeExifSourceJpeg(dir.filePath("src.jpg"),
+                                                source, 1);
+    QVERIFY(!srcPath.isEmpty());
+    // exiv2 注入 ICC（独立实现写路径）
+    {
+        Exiv2::Image::UniquePtr img =
+            Exiv2::ImageFactory::open(srcPath.toStdString());
+        QVERIFY(img.get() != nullptr);
+        img->readMetadata();
+        const QByteArray icc = makeMinimalIcc();
+        img->setIccProfile(Exiv2::DataBuf(
+            reinterpret_cast<const Exiv2::byte *>(icc.constData()),
+            icc.size()));
+        try {
+            img->writeMetadata();
+        } catch (const std::exception &e) {
+            QFAIL(qPrintable(QStringLiteral("写入 ICC 失败：%1")
+                                 .arg(QString::fromUtf8(e.what()))));
+        }
+    }
+
+    ExportOptions opt;
+    opt.outputDir = dir.filePath("out");
+    opt.format = OutputFormat::Png;
+    QVERIFY(QDir().mkpath(opt.outputDir));
+    PhotoDocument doc = makeDoc(srcPath, source.size());
+    // 模拟导入链路的 ICC 提取（ExifReader → PhotoMeta）
+    ExifReader reader(srcPath);
+    QVERIFY(reader.read());
+    doc.meta.iccProfile = reader.iccProfile();
+    QVERIFY2(!doc.meta.iccProfile.isEmpty(),
+             "ExifReader 未提取到 ICC（A3 修复失效）");
+
+    ExportEngine::ItemRequest req;
+    req.doc = doc;
+    req.options = opt;
+    req.outputPath = QDir(opt.outputDir).filePath("src.png");
+    req.resolver = emptyResolver();
+    const auto result = ExportEngine::exportSingle(req);
+    QVERIFY2(result.ok, qPrintable(result.stage + ": " + result.error));
+
+    QFile out(result.outputPath);
+    QVERIFY(out.open(QIODevice::ReadOnly));
+    const QByteArray bytes = out.readAll();
+    QVERIFY2(!PngChunkIO::chunkData(bytes, "iCCP").isEmpty(),
+             "跨格式 PNG 输出缺 iCCP（ICC 仍丢失）");
+}
+
+void TestExport::bigEndianDpi()
+{
+    // A4：大端（MM）Exif 的 ResolutionUnit 此前按 u32 读 → 0x00020000
+    // 不命中 switch → PNG 输出错写 300。修复后 Source 语义应为 72
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QByteArray mm = makeMmTiff72Dpi();
+    QCOMPARE(mm.size(), 46);
+    // 最小 PNG 壳（签名 + IEND）作为编码器产物替身——pHYs 由
+    // composePngFromRaw 注入，与像素内容无关
+    QByteArray png("\x89PNG\r\n\x1a\n", 8);
+    png.append(QByteArray(4, char(0)));   // 占位 chunk 结构由 setChunk 接管
+    png.append("IEND");
+    png.append(QByteArray(4, char(0)));
+
+    Platform::ExportPolicy policy;
+    policy.dpiMode = Platform::ExportPolicy::DpiMode::Source;
+    const QByteArray out = MetadataMuxer::composePngFromRaw(png, mm, {},
+                                                            policy);
+    const QByteArray phys = PngChunkIO::chunkData(out, "pHYs");
+    QCOMPARE(phys.size(), 9);
+    const quint32 ppm = qFromBigEndian<quint32>(
+        reinterpret_cast<const uchar *>(phys.constData()));
+    const double dpi = ppm * 0.0254;
+    QVERIFY2(qAbs(dpi - 72.0) < 0.5,
+             qPrintable(QStringLiteral("MM 源 DPI=%1（期望 72）").arg(dpi)));
+}
+
+void TestExport::setAsciiShortValueKeepsOriginal()
+{
+    // A5：源 Software='v1'（2 字符+\\0=3 字节空间）——旧实现截出 "Fra"
+    // 残串；修复后放不下 → 保留原值
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    QImage source(80, 60, QImage::Format_ARGB32);
+    source.fill(Qt::green);
+    const QString srcPath = writeExifSourceJpeg(dir.filePath("s.jpg"),
+                                                source, 1);
+    QVERIFY(!srcPath.isEmpty());
+    {
+        Exiv2::Image::UniquePtr img =
+            Exiv2::ImageFactory::open(srcPath.toStdString());
+        QVERIFY(img.get() != nullptr);
+        img->readMetadata();
+        img->exifData()["Exif.Image.Software"] = "v1";
+        try {
+            img->writeMetadata();
+        } catch (const std::exception &) {
+            QFAIL("改写 Software 失败");
+        }
+    }
+    QFile srcFile(srcPath);
+    QVERIFY(srcFile.open(QIODevice::ReadOnly));
+    const QByteArray srcJpegBytes = srcFile.readAll();
+    srcFile.close();
+    const QByteArray tiff = MetadataMuxer::exifTiffFromJpeg(srcJpegBytes);
+    QVERIFY(!tiff.isEmpty());
+    const QByteArray edited = ExifIfdEditor::setAscii(
+        tiff, ExifIfdEditor::Ifd::Ifd0, ExifIfdEditor::TagSoftware,
+        QByteArray("FrameXT 0.1.0"));
+    // 回读（exiv2 独立实现交叉验证）
+    Exiv2::Image::UniquePtr img = Exiv2::ImageFactory::open(
+        reinterpret_cast<const Exiv2::byte *>(edited.constData()),
+        edited.size());
+    QVERIFY(img.get() != nullptr);
+    img->readMetadata();
+    QCOMPARE(img->exifData()["Exif.Image.Software"].toString().c_str(),
+             "v1");   // 保留原值，非 "Fra"
+}
+
+void TestExport::emptyPatternFallsBack()
+{
+    PhotoDocument doc = makeDoc(QStringLiteral("Z:/in/DSC_100.jpg"),
+                                { 4000, 3000 });
+    ExportOptions opt;
+    opt.naming = NamingMode::CustomPattern;
+    opt.customPattern = QStringLiteral("   ");   // 空模板（含空白）
+    QCOMPARE(ExportEngine::buildFileName(doc, opt, 0),
+             QStringLiteral("DSC_100.jpg"));   // 兜底 {name}，非 ".jpg"
 }
 
 QTEST_MAIN(TestExport)

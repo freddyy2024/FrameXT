@@ -220,10 +220,10 @@ QByteArray ExifIfdEditor::setAscii(const QByteArray &tiff, Ifd ifd,
     if (count == 0)
         return tiff;
 
-    // ASCII count 含结尾 \0，可写正文字节上限 = count-1；
-    // 超长截断（同长度约束下无法扩写）
-    const int maxChars = int(count) - 1;
-    if (maxChars <= 0)
+    // ASCII count 含结尾 \0，可写正文字节上限 = count-1。
+    // 新值放不下 → 保留原值（截出 "Fra" 这类无意义残串比不写更糟，
+    // 评审 A5）；放得下 → 写正文并 \0 填充剩余空间。
+    if (value.size() > int(count) - 1)
         return tiff;
 
     QByteArray out = tiff;
