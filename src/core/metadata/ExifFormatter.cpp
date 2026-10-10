@@ -33,8 +33,12 @@ QString ExifFormatter::shutter(double seconds)
 {
     if (seconds <= 0)
         return QString();
-    if (seconds < 1.0)
+    if (seconds < 1.0) {
+        // 0.67–1s 区间就近显示 "1s"（"1/1" 无意义，评审 P2）
+        if (1.0 / seconds < 1.5)
+            return QStringLiteral("1s");
         return shutterFraction(seconds);
+    }
     // ≥1s：一位小数去尾零（1.6s / 30s）
     return trimFloat(seconds, 1) + QLatin1Char('s');
 }
@@ -44,6 +48,15 @@ QString ExifFormatter::fNumber(double value)
     if (value <= 0)
         return QString();
     return QStringLiteral("f/%1").arg(trimFloat(value, 1));
+}
+
+QString ExifFormatter::apexFNumber(double apex)
+{
+    // MaxApertureValue 等为 APEX 值：f-number = 2^(apex/2)。
+    // 直接按 FNumber 格式化会系统性显示错误（f/2.8 → "f/3"，评审 P0）
+    if (apex <= 0)
+        return QString();
+    return fNumber(std::pow(2.0, apex / 2.0));
 }
 
 QString ExifFormatter::focalLength(double mm)
@@ -69,8 +82,9 @@ QString ExifFormatter::iso(int value)
 
 QString ExifFormatter::exposureComp(double ev)
 {
-    // +0.3 EV / -1 EV / 0 EV（± 一位小数）
-    if (qFuzzyIsNull(ev))
+    // +0.3 EV / -1 EV / 0 EV（± 一位小数）；|ev|<0.05 视作 0
+    //（qFuzzyIsNull 只兜极小值，0.04 会出现 "+0 EV"/"-0 EV"，评审 P2）
+    if (qAbs(ev) < 0.05)
         return QStringLiteral("0 EV");
     const QString sign = ev > 0 ? QStringLiteral("+") : QString();
     return sign + trimFloat(ev, 1) + QStringLiteral(" EV");
@@ -141,6 +155,18 @@ QString ExifFormatter::sceneCaptureType(int value)
     }
 }
 
+QString ExifFormatter::fujiFilmMode(int value)
+{
+    switch (value) {
+    case 0: return QStringLiteral("标准 (Provia)");
+    case 1: return QStringLiteral("鲜艳 (Velvia)");
+    case 2: return QStringLiteral("柔和 (Astia)");
+    case 256: return QStringLiteral("Pro Neg. Hi");
+    case 512: return QStringLiteral("Pro Neg. Std");
+    default: return QString();   // 其余枚举值未确证：宁缺勿错
+    }
+}
+
 QString ExifFormatter::gpsDms(double decimal, bool positiveRef, QChar positiveSymbol,
                               QChar negativeSymbol)
 {
@@ -194,6 +220,11 @@ QString ExifFormatter::dateTime(const QString &exifDateTime, bool withSeconds)
     const QString norm = exifDateTime.trimmed();
     if (norm.size() != 19 || norm.at(4) != QLatin1Char(':'))
         return norm;   // 非标格式原样返回（有值总比丢值好）
+    // 未设时钟（"0000:00:00" 等）：不格式化成假日期，字段置空
+    if (norm.mid(0, 4) == QLatin1String("0000")
+        || norm.mid(5, 2) == QLatin1String("00")
+        || norm.mid(8, 2) == QLatin1String("00"))
+        return QString();
     const QString date = QStringLiteral("%1-%2-%3")
                              .arg(norm.mid(0, 4), norm.mid(5, 2), norm.mid(8, 2));
     const QString time = norm.mid(11, withSeconds ? 8 : 5);

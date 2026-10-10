@@ -19,10 +19,14 @@ private slots:
     void modelPrefixFallback() const;
     void unmatchedFallsBackToOthers() const;
     void panasonicShowsLumix() const;
+    // —— 评审回归 ——
+    void ricohPentaxDisambiguation() const;
+    void phoneBrandsAndCaseVariants() const;
     // —— SensorRegistry ——
     void cropFactorTable() const;
     void effectiveFocalSemantics() const;
     void focalEqFallbackInRegistry() const;
+    void cropFactorNegativeCases() const;
 };
 
 void TestBrand::makeAliasMatching() const
@@ -100,6 +104,58 @@ void TestBrand::panasonicShowsLumix() const
     QVERIFY(p.logoPath.contains(QStringLiteral("panasonic")));
 }
 
+// —— 评审回归 ——
+
+void TestBrand::ricohPentaxDisambiguation() const
+{
+    // P1：理光 GR 与宾得 K 系新机共用 make 串 "RICOH IMAGING COMPANY, LTD."
+    //（原实现 GR 系会被 Pentax 别名抢先误判）
+    const BrandDef gr = BrandRegistry::match(
+        QStringLiteral("RICOH IMAGING COMPANY, LTD."), QStringLiteral("GR III"));
+    QCOMPARE(gr.value, QStringLiteral("Ricoh"));
+    QCOMPARE(gr.label, QStringLiteral("Ricoh"));
+    const BrandDef k3 = BrandRegistry::match(
+        QStringLiteral("RICOH IMAGING COMPANY, LTD."),
+        QStringLiteral("PENTAX K-3 Mark III"));
+    QCOMPARE(k3.value, QStringLiteral("Pentax"));
+    // 缺 "PENTAX" 字样的宾得 model：K- 前缀消歧
+    QCOMPARE(BrandRegistry::match(QStringLiteral("RICOH IMAGING COMPANY, LTD."),
+                                  QStringLiteral("K-1 Mark II"))
+                 .value,
+             QStringLiteral("Pentax"));
+    // 老宾得 make
+    QCOMPARE(BrandRegistry::match(QStringLiteral("PENTAX Corporation"),
+                                  QStringLiteral("PENTAX K-5"))
+                 .value,
+             QStringLiteral("Pentax"));
+}
+
+void TestBrand::phoneBrandsAndCaseVariants() const
+{
+    // P1：手机品牌与大小写混合别名此前零覆盖
+    QCOMPARE(BrandRegistry::match(QStringLiteral("Apple"),
+                                  QStringLiteral("iPhone 15 Pro"))
+                 .value,
+             QStringLiteral("Apple"));
+    QCOMPARE(BrandRegistry::match(QStringLiteral("HUAWEI"),
+                                  QStringLiteral("P50 Pro"))
+                 .value,
+             QStringLiteral("Huawei"));
+    QCOMPARE(BrandRegistry::match(QStringLiteral("samsung"),
+                                  QStringLiteral("SM-S9180"))
+                 .value,
+             QStringLiteral("Samsung"));
+    // 全小写 make 别名包含仍命中
+    QCOMPARE(BrandRegistry::match(QStringLiteral("nikon corporation"),
+                                  QStringLiteral("NIKON Z 6_2"))
+                 .value,
+             QStringLiteral("Nikon"));
+    QCOMPARE(BrandRegistry::match(QStringLiteral("ricoh"),
+                                  QStringLiteral("GR IIIx"))
+                 .value,
+             QStringLiteral("Ricoh"));
+}
+
 void TestBrand::cropFactorTable() const
 {
     // 中画幅
@@ -138,6 +194,46 @@ void TestBrand::cropFactorTable() const
     QCOMPARE(SensorRegistry::cropFactorFor(QStringLiteral("UnknownBrand"),
                                            QStringLiteral("XX-1")),
              1.0);
+}
+
+void TestBrand::cropFactorNegativeCases() const
+{
+    // P1：跨厂子串误命中负例（makeHint 品牌约束的回归锁定）
+    // Canon PowerShot G9 X（1 英寸底）不得命中 Panasonic "G9" → 2.0
+    QCOMPARE(SensorRegistry::cropFactorFor(QStringLiteral("Canon"),
+                                           QStringLiteral("PowerShot G9 X")),
+             1.0);
+    // PENTAX K-1（全幅）不得命中 Olympus "PEN" → 2.0
+    QCOMPARE(SensorRegistry::cropFactorFor(QStringLiteral("PENTAX"),
+                                           QStringLiteral("PENTAX K-1")),
+             1.0);
+    // 理光 GR IIIx：GR 规则命中（1.5×）
+    QCOMPARE(SensorRegistry::cropFactorFor(QStringLiteral("RICOH IMAGING"),
+                                           QStringLiteral("GR IIIx")),
+             1.5);
+    // 松下全幅 S5 不误判 M43
+    QCOMPARE(SensorRegistry::cropFactorFor(QStringLiteral("Panasonic"),
+                                           QStringLiteral("DC-S5")),
+             1.0);
+    // Olympus 便携机 TG-6（1/2.3"）不享受 M43 倍率（宁缺勿错 → 1.0）
+    QCOMPARE(SensorRegistry::cropFactorFor(QStringLiteral("OLYMPUS"),
+                                           QStringLiteral("TG-6")),
+             1.0);
+    // 富士小底 X10（2/3"）不享受 APSC 倍率
+    QCOMPARE(SensorRegistry::cropFactorFor(QStringLiteral("FUJIFILM"),
+                                           QStringLiteral("X10")),
+             1.0);
+    // 尼康 D7000 系（APSC 表内）
+    QCOMPARE(SensorRegistry::cropFactorFor(QStringLiteral("NIKON CORPORATION"),
+                                           QStringLiteral("NIKON D7000")),
+             1.5);
+    // Canon EOS M6 Mark II 命中 "M6"（1.6×）；Nikon Z fc 命中（1.5×）
+    QCOMPARE(SensorRegistry::cropFactorFor(QStringLiteral("Canon"),
+                                           QStringLiteral("Canon EOS M6 Mark II")),
+             1.6);
+    QCOMPARE(SensorRegistry::cropFactorFor(QStringLiteral("NIKON CORPORATION"),
+                                           QStringLiteral("NIKON Z fc")),
+             1.5);
 }
 
 void TestBrand::effectiveFocalSemantics() const

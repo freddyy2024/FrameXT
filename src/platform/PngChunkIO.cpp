@@ -3,6 +3,8 @@
 #include <QtEndian>
 #include <QtGlobal>
 
+#include <array>
+
 namespace fxt::Platform {
 
 namespace {
@@ -11,20 +13,21 @@ const char kPngSignature[kSignatureSize] = {
     char(0x89), 'P', 'N', 'G', char(0x0D), char(0x0A), char(0x1A), char(0x0A)
 };
 
-// PNG 标准_CRC-32（ISO 3309，zlib 多项式 0xEDB88320 反射式）
+// PNG 标准_CRC-32（ISO 3309，zlib 多项式 0xEDB88320 反射式）。
+// 查表用 magic static 一次性初始化——函数级 static 的惰性标志位在并发
+// 首调下有数据竞争（M4 QtConcurrent 并行导出场景，评审 P1）
 quint32 crc32Of(const QByteArray &data)
 {
-    static quint32 table[256];
-    static bool init = false;
-    if (!init) {
+    static const std::array<quint32, 256> table = [] {
+        std::array<quint32, 256> t = {};
         for (quint32 i = 0; i < 256; ++i) {
             quint32 c = i;
             for (int k = 0; k < 8; ++k)
                 c = (c & 1) ? (0xEDB88320u ^ (c >> 1)) : (c >> 1);
-            table[i] = c;
+            t[i] = c;
         }
-        init = true;
-    }
+        return t;
+    }();
     quint32 crc = 0xFFFFFFFFu;
     for (uchar ch : data)
         crc = table[(crc ^ ch) & 0xFF] ^ (crc >> 8);
@@ -89,41 +92,65 @@ QByteArray PngChunkIO::setChunk(const QByteArray &png, const Chunk &newChunk)
     if (!isValidPng(png))
         return png;
 
-    const int bodyStart = kSignatureSize;
-    int i = bodyStart;
-    QByteArray kept;   // 保留的非同类型 chunk（到 IEND 前）
-    bool iendFound = false;
     const int n = png.size();
-    while (i + 12 <= n) {
-        const quint32 length = qFromBigEndian<quint32>(
-            reinterpret_cast<const uchar *>(png.constData() + i));
-        const QByteArray type = png.mid(i + 4, 4);
-        if (length > quint32(n - i - 12))
-            return png;   // 畸形，原样
-        const int total = 12 + int(length);
-        const bool sameType = !newChunk.type.isEmpty() && type == newChunk.type;
-        if (type == QByteArray("IEND")) {
-            iendFound = true;
-            // IEND 之前的保留段已收齐，插入新 chunk 后接 IEND 及其后
-            if (newChunk.data.isEmpty())
-                break;   // 仅删除：跳过插入
-            kept.append(chunkBytes(newChunk));
-            break;
+    // 预扫描：确认 IEND 存在且结构完整（任一 chunk 越界即畸形原样返回）
+    bool iendFound = false;
+    {
+        int i = kSignatureSize;
+        while (i + 12 <= n) {
+            const quint32 length = qFromBigEndian<quint32>(
+                reinterpret_cast<const uchar *>(png.constData() + i));
+            const QByteArray type = png.mid(i + 4, 4);
+            if (length > quint32(n - i - 12) || type.size() != 4)
+                return png;
+            if (type == QByteArray("IEND")) {
+                iendFound = true;
+                break;
+            }
+            i += 12 + int(length);
         }
-        if (!sameType)
-            kept.append(png.constData() + i, total);
-        i += total;
     }
     if (!iendFound)
         return png;   // 无 IEND（截断文件），原样
 
-    return png.left(bodyStart) + kept + png.mid(i);
+    // 重建：同类型 chunk 剔除（全段范围），新 chunk 插到首个 IDAT 之前——
+    // PNG 规范要求 eXIf/iCCP/pHYs 先于 IDAT，libpng 对 IDAT 之后的辅助
+    // chunk 报 benign error 并忽略（评审 P1：原实现插在 IEND 前导致
+    // DPI/ICC 写了但读取端静默丢失）
+    if (newChunk.type.isEmpty())
+        return png;   // 无类型 chunk 无意义
+    const bool insert = !newChunk.data.isEmpty();   // data 空 = 仅删除同类型
+    bool inserted = !insert;
+    QByteArray out;
+    out.append(png.constData(), kSignatureSize);
+    int i = kSignatureSize;
+    while (i + 12 <= n) {
+        const quint32 length = qFromBigEndian<quint32>(
+            reinterpret_cast<const uchar *>(png.constData() + i));
+        const QByteArray type = png.mid(i + 4, 4);
+        const int total = 12 + int(length);
+        const bool drop = !newChunk.type.isEmpty() && type == newChunk.type;
+        if (!inserted && type == QByteArray("IDAT")) {
+            out.append(chunkBytes(newChunk));
+            inserted = true;
+        }
+        if (!drop)
+            out.append(png.constData() + i, total);
+        if (type == QByteArray("IEND"))
+            break;
+        i += total;
+    }
+    // 无 IDAT 的极端文件（空画布 PNG）：退到 IEND 前插入，保证不丢
+    if (!inserted)
+        out.insert(out.size() - 12, chunkBytes(newChunk));
+    return out;
 }
 
 PngChunkIO::Chunk PngChunkIO::makePhys(double dpi)
 {
-    // pHYs：4 字节 x ppu + 4 字节 y ppu + 1 字节 unit(=1 米)
-    const quint32 ppm = quint32(qRound(dpi / 0.0254));
+    // pHYs：4 字节 x ppu + 4 字节 y ppu + 1 字节 unit(=1 米)；
+    // dpi clamp 到 [1,10000]（0/负值经 quint32 转换回绕成怪值）
+    const quint32 ppm = quint32(qRound(qBound(1.0, dpi, 10000.0) / 0.0254));
     Chunk c;
     c.type = QByteArray("pHYs");
     c.data.reserve(9);

@@ -31,6 +31,8 @@ enum class FieldFormat {
     GpsLatitude,
     GpsLongitude,
     GpsAltitude,
+    ApertureValue,  // APEX 光圈值（MaxApertureValue：f=2^(v/2)）
+    FujiFilmMode,   // 富士胶片模拟枚举 → 中文名
 };
 
 // 展示字段定义（数据驱动：取值链多 tag 回退 + 格式化器）

@@ -2,6 +2,8 @@
 
 #include <QtGlobal>
 
+#include <cstring>
+
 namespace fxt::Platform {
 
 namespace {
@@ -12,14 +14,28 @@ constexpr int kIfdEntrySize = 12;    // tag(2) + type(2) + count(4) + value/offs
 constexpr quint16 kTypeShort = 3;
 constexpr quint16 kTypeRational = 5;
 
-// 小端读取（II）；大端（MM）由 lambda 适配，调用侧无感
+// Exif type → 单元素字节数；未知 type 返回 0（不参与数据区运算）
+quint32 typeSizeOf(quint16 type)
+{
+    switch (type) {
+    case 1: case 2: case 6: case 7: return 1;   // BYTE/ASCII/SBYTE/UNDEFINED
+    case 3: case 8: return 2;                    // SHORT/SSHORT
+    case 4: case 9: case 11: return 4;           // LONG/SLONG/FLOAT
+    case 5: case 10: case 12: return 8;          // RATIONAL/SRATIONAL/DOUBLE
+    default: return 0;
+    }
+}
+
+// 小端读取（II）；大端（MM）由 lambda 适配，调用侧无感。
+// 索引统一 qint64 且拒绝负数——防御畸形 offset 回绕（评审 P0：
+// valueOffset≈0xFFFFFFFF 时 quint32 加法回绕可绕过边界检查致堆越界写）
 struct ByteOrder
 {
     bool little = true;
 
     quint16 u16(const QByteArray &d, int pos) const
     {
-        if (pos + 2 > d.size())
+        if (pos < 0 || qint64(pos) + 2 > qint64(d.size()))
             return 0;
         const uchar a = uchar(d.at(pos));
         const uchar b = uchar(d.at(pos + 1));
@@ -27,7 +43,7 @@ struct ByteOrder
     }
     quint32 u32(const QByteArray &d, int pos) const
     {
-        if (pos + 4 > d.size())
+        if (pos < 0 || qint64(pos) + 4 > qint64(d.size()))
             return 0;
         const uchar a = uchar(d.at(pos));
         const uchar b = uchar(d.at(pos + 1));
@@ -38,7 +54,7 @@ struct ByteOrder
     }
     void put16(QByteArray &d, int pos, quint16 v) const
     {
-        if (pos + 2 > d.size())
+        if (pos < 0 || qint64(pos) + 2 > qint64(d.size()))
             return;
         if (little) {
             d[pos] = char(v & 0xFF);
@@ -50,7 +66,7 @@ struct ByteOrder
     }
     void put32(QByteArray &d, int pos, quint32 v) const
     {
-        if (pos + 4 > d.size())
+        if (pos < 0 || qint64(pos) + 4 > qint64(d.size()))
             return;
         if (little) {
             d[pos] = char(v & 0xFF);
@@ -88,7 +104,7 @@ bool parseHeader(const QByteArray &tiff, ByteOrder &bo, quint32 &ifd0Offset)
 bool locateIfd(const QByteArray &tiff, const ByteOrder &bo, quint32 ifdOffset,
                int &entryCount, int &entriesPos)
 {
-    if (ifdOffset + 2 > quint32(tiff.size()))
+    if (qint64(ifdOffset) + 2 > qint64(tiff.size()))
         return false;
     entryCount = int(bo.u16(tiff, int(ifdOffset)));
     entriesPos = int(ifdOffset) + 2;
@@ -174,7 +190,9 @@ QByteArray ExifIfdEditor::setRational(const QByteArray &tiff, Ifd ifd, quint16 t
     if (bo.u16(tiff, pos + 2) != kTypeRational || bo.u32(tiff, pos + 4) != 1)
         return tiff;
     const quint32 valueOffset = bo.u32(tiff, pos + 8);
-    if (valueOffset + 8 > quint32(tiff.size()))
+    // qint64 运算防回绕：valueOffset≈0xFFFFFFFF 时 quint32 加法回为小值
+    // 即可绕过检查 → put32 负索引堆越界写（评审 P0）
+    if (qint64(valueOffset) + 8 > qint64(tiff.size()))
         return tiff;
     QByteArray out = tiff;
     bo.put32(out, int(valueOffset), numerator);
@@ -195,21 +213,58 @@ QByteArray ExifIfdEditor::stripGps(const QByteArray &tiff)
         return tiff;
 
     int gpsPos = -1;
+    quint32 gpsIfdOffset = 0;
     for (int i = 0; i < entryCount; ++i) {
         const int pos = entriesPos + i * kIfdEntrySize;
         if (bo.u16(tiff, pos) == TagGpsInfoPointer) {
             gpsPos = pos;
+            gpsIfdOffset = bo.u32(tiff, pos + 8);
             break;
         }
     }
     if (gpsPos < 0)
         return tiff;   // 无 GPS，原样
 
-    // 删除该 entry：后续 entry 前移 12 字节、count-1、entry 区尾部补零。
-    // IFD 外部数据（被 offset 引用）位置全部不变，引用安全。
     QByteArray out = tiff;
-    out.remove(gpsPos, kIfdEntrySize);
-    out.append(QByteArray(kIfdEntrySize, char(0)));   // 补齐长度，外部 offset 不变
+
+    // 1) 清零 GPS IFD 区域与其数据区（§4.8 删指针 + 删 tag 数据——只删
+    //    指针时坐标字节仍留在文件内可被取证还原，评审 P0）
+    if (gpsIfdOffset >= kTiffHeaderSize && gpsIfdOffset < quint32(out.size())) {
+        int gCount = 0;
+        int gEntriesPos = 0;
+        if (locateIfd(out, bo, gpsIfdOffset, gCount, gEntriesPos)) {
+            for (int i = 0; i < gCount; ++i) {
+                const int pos = gEntriesPos + i * kIfdEntrySize;
+                const quint16 type = bo.u16(out, pos + 2);
+                const quint64 total =
+                    quint64(bo.u32(out, pos + 4)) * typeSizeOf(type);
+                // 值不在 entry 内联（>4 字节）→ 数据区在 offset 处，清零
+                if (total > 4) {
+                    const quint32 dataOff = bo.u32(out, pos + 8);
+                    if (dataOff < quint32(out.size())) {
+                        const int clearLen = int(qMin<quint64>(
+                            total, quint64(out.size()) - dataOff));
+                        if (clearLen > 0)
+                            memset(out.data() + dataOff, 0, clearLen);
+                    }
+                }
+            }
+            // GPS IFD 自身（count + entries + next 指针）
+            const qint64 region = 2 + qint64(gCount) * kIfdEntrySize + 4;
+            if (qint64(gpsIfdOffset) + region <= out.size())
+                memset(out.data() + gpsIfdOffset, 0, int(region));
+        }
+    }
+
+    // 2) 删除 IFD0 的 GPS entry：仅在 entry 区内部前移（后续 entry 各前移
+    //    12 字节、entry 区尾部 12 字节置零、count-1）。总长不变，IFD0 之后
+    //    的所有数据（ExifIFD、MakerNote、缩略图等）位置不动——外部 offset
+    //    引用全部保持有效（评审 P0：QByteArray::remove 整体前移会使
+    //    0x8769 等指针全部错位）
+    const int tail = entriesPos + entryCount * kIfdEntrySize;
+    std::memmove(out.data() + gpsPos, out.data() + gpsPos + kIfdEntrySize,
+                 size_t(tail - (gpsPos + kIfdEntrySize)));
+    memset(out.data() + tail - kIfdEntrySize, 0, kIfdEntrySize);
     bo.put16(out, int(ifd0), quint16(entryCount - 1));
     return out;
 }

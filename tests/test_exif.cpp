@@ -42,11 +42,17 @@ private slots:
     void gpsDmsFormat() const;
     void dateTimeNormalizes() const;
     void invalidInputsReturnEmpty() const;
+    // —— 评审回归（M2 评审修复锁定）——
+    void enumFieldsLegalValues() const;
+    void apexFNumberConverts() const;
+    void formatterEdgeCorrections() const;
     // —— FieldRegistry ——
     void registryMapsTagsToDisplay() const;
     void registryFallsBackAlongTagChain() const;
     void registryOverridesWin() const;
     void makerFieldsMissingSilently() const;
+    void registryApexAndMakeDisplay() const;
+    void registryGpsRefMissingOmits() const;
     // —— ExifReader（exiv2 集成）——
     void readerRoundTripsWrittenExif() const;
     void readerRejectsNonImage() const;
@@ -133,6 +139,55 @@ void TestExif::invalidInputsReturnEmpty() const
     QVERIFY(ExifFormatter::trimFloat(qInf()).isEmpty());
 }
 
+// —— 评审回归 ——
+
+void TestExif::enumFieldsLegalValues() const
+{
+    // P1：枚举字段合法值此前零覆盖（flash 位运算逻辑未执行过）
+    QCOMPARE(ExifFormatter::flash(0), QStringLiteral("未闪光"));
+    QCOMPARE(ExifFormatter::flash(0x01), QStringLiteral("闪光"));
+    QCOMPARE(ExifFormatter::flash(0x07), QStringLiteral("强制闪光"));
+    QCOMPARE(ExifFormatter::flash(0x09), QStringLiteral("补光闪光"));
+    QCOMPARE(ExifFormatter::flash(0x0D), QStringLiteral("防红眼闪光"));
+    QCOMPARE(ExifFormatter::whiteBalance(0), QStringLiteral("自动白平衡"));
+    QCOMPARE(ExifFormatter::whiteBalance(1), QStringLiteral("手动白平衡"));
+    QCOMPARE(ExifFormatter::meteringMode(3), QStringLiteral("点测"));
+    QCOMPARE(ExifFormatter::meteringMode(5), QStringLiteral("图案测光"));
+    QCOMPARE(ExifFormatter::exposureProgram(3), QStringLiteral("光圈优先"));
+    QCOMPARE(ExifFormatter::sceneCaptureType(2), QStringLiteral("风景"));
+    // 富士胶片模拟（探针核对 FilmMode 枚举后的映射）
+    QCOMPARE(ExifFormatter::fujiFilmMode(0), QStringLiteral("标准 (Provia)"));
+    QCOMPARE(ExifFormatter::fujiFilmMode(1), QStringLiteral("鲜艳 (Velvia)"));
+    QCOMPARE(ExifFormatter::fujiFilmMode(2), QStringLiteral("柔和 (Astia)"));
+    QCOMPARE(ExifFormatter::fujiFilmMode(256), QStringLiteral("Pro Neg. Hi"));
+    QVERIFY(ExifFormatter::fujiFilmMode(99).isEmpty());   // 未确证值不出
+}
+
+void TestExif::apexFNumberConverts() const
+{
+    // P0：MaxApertureValue 是 APEX（f=2^(v/2)），直接按 FNumber 会错
+    QCOMPARE(ExifFormatter::apexFNumber(3.0), QStringLiteral("f/2.8"));
+    QCOMPARE(ExifFormatter::apexFNumber(4.0), QStringLiteral("f/4"));
+    QCOMPARE(ExifFormatter::apexFNumber(5.0), QStringLiteral("f/5.7"));
+    QVERIFY(ExifFormatter::apexFNumber(0).isEmpty());
+    QVERIFY(ExifFormatter::apexFNumber(-1).isEmpty());
+}
+
+void TestExif::formatterEdgeCorrections() const
+{
+    // P2 修正锁定：0.98s → "1s"（非 "1/1"）
+    QCOMPARE(ExifFormatter::shutter(0.98), QStringLiteral("1s"));
+    QCOMPARE(ExifFormatter::shutter(0.5), QStringLiteral("1/2"));
+    // EV 负零：|ev|<0.05 → "0 EV"
+    QCOMPARE(ExifFormatter::exposureComp(0.04), QStringLiteral("0 EV"));
+    QCOMPARE(ExifFormatter::exposureComp(-0.04), QStringLiteral("0 EV"));
+    // 未设时钟不格式化成假日期
+    QVERIFY(ExifFormatter::dateTime(QStringLiteral("0000:00:00 12:00:00"))
+                .isEmpty());
+    QVERIFY(ExifFormatter::dateTime(QStringLiteral("2026:00:10 12:00:00"))
+                .isEmpty());
+}
+
 void TestExif::registryMapsTagsToDisplay() const
 {
     RawExif raw;
@@ -184,6 +239,43 @@ void TestExif::makerFieldsMissingSilently() const
     QVERIFY(display.contains(QStringLiteral("make")));
 }
 
+void TestExif::registryApexAndMakeDisplay() const
+{
+    // P0：maxAperture 走 APEX 换算（此前按 FNumber 直读会 f/2.8→"f/3"）
+    // P1：make 走品牌别名映射展示（"NIKON CORPORATION" → "Nikon"）
+    RawExif raw;
+    raw.insert(QStringLiteral("Exif.Image.Make"),
+               QStringLiteral("NIKON CORPORATION"));
+    raw.insert(QStringLiteral("Exif.Image.Model"), QStringLiteral("NIKON Z 7_2"));
+    raw.insert(QStringLiteral("Exif.Photo.MaxApertureValue"),
+               QStringLiteral("3/1"));
+    const auto display = FieldRegistry::resolveDisplay(raw);
+    QCOMPARE(display.value(QStringLiteral("maxAperture")),
+             QStringLiteral("f/2.8"));
+    QCOMPARE(display.value(QStringLiteral("make")), QStringLiteral("Nikon"));
+    // 未知品牌保留原始 make（有信息总比 "Others" 好）
+    RawExif raw2;
+    raw2.insert(QStringLiteral("Exif.Image.Make"), QStringLiteral("MysteryCam"));
+    const auto display2 = FieldRegistry::resolveDisplay(raw2);
+    QCOMPARE(display2.value(QStringLiteral("make")), QStringLiteral("MysteryCam"));
+}
+
+void TestExif::registryGpsRefMissingOmits() const
+{
+    // P2：GPS Ref 缺失不出值（默认 N/E 会在南/西半球显示错半球）
+    RawExif raw;
+    raw.insert(QStringLiteral("Exif.GPSInfo.GPSLatitude"),
+               QStringLiteral("-33.8688"));
+    const auto display = FieldRegistry::resolveDisplay(raw);
+    QVERIFY(!display.contains(QStringLiteral("gpsLatitude")));
+    // Ref 齐全时正常出值
+    raw.insert(QStringLiteral("Exif.GPSInfo.GPSLatitudeRef"),
+               QStringLiteral("S"));
+    const auto display2 = FieldRegistry::resolveDisplay(raw);
+    QCOMPARE(display2.value(QStringLiteral("gpsLatitude")),
+             QStringLiteral("33°52'07.7\"S"));
+}
+
 void TestExif::readerRoundTripsWrittenExif() const
 {
     // exiv2 写入 → ExifReader 读回：全链路集成（含 Orientation 测试图补缺）
@@ -220,8 +312,9 @@ void TestExif::readerRoundTripsWrittenExif() const
     QVERIFY2(reader.read(), qPrintable(reader.error()));
 
     const auto display = FieldRegistry::resolveDisplay(reader.raw());
+    // make 按 §7.2 走品牌别名映射展示（"OM Digital Solutions" → "OM System"）
     QCOMPARE(display.value(QStringLiteral("make")),
-             QStringLiteral("OM Digital Solutions"));
+             QStringLiteral("OM System"));
     QCOMPARE(display.value(QStringLiteral("model")), QStringLiteral("OM-1"));
     QCOMPARE(display.value(QStringLiteral("shutter")), QStringLiteral("1/160"));
     QCOMPARE(display.value(QStringLiteral("fNumber")), QStringLiteral("f/2.8"));

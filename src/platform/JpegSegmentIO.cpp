@@ -3,10 +3,13 @@
 namespace fxt::Platform {
 
 namespace {
-// 段类型判定（只搬运元数据段；SOF/DHT/DQT/RST 等编码器自管）
+// splice 时从编码器输出中剔除的段（仅限本模块管理语义的段，防重复）：
+// APP1-Exif / APP2-ICC / APP13-IPTC / COM。
+// APP0-JFIF（含 density，删了 DPI 语义缺半边）与 Adobe APP14（影响解码
+// 假设，删了可能翻色）等其他 APPn 一律保留（评审 P1）
 bool isMetadataMarker(quint8 m)
 {
-    return (m >= 0xE0 && m <= 0xEF) || m == 0xFE;   // APPn / COM
+    return m == 0xE1 || m == 0xE2 || m == 0xED || m == 0xFE;
 }
 } // namespace
 

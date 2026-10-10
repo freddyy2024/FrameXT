@@ -22,7 +22,9 @@ enum class CropBase {
 double factorOf(CropBase base);
 
 // make+model → 裁切倍率（机型自动表；未收录回落 1.0）。
-// 大小写不敏感，子串匹配（"OM-1 Mark II" 命中 "OM-1"）。
+// 规则带品牌约束（make 须包含 hint 才生效），防跨厂子串误命中
+// （Canon "PowerShot G9 X" 不得命中 Panasonic 的 "G9"、PENTAX K-1
+// 不得命中 Olympus 的 "PEN"——评审 P1）。
 double cropFactorFor(const QString &make, const QString &model);
 
 // 等效焦距合成：exif35mm 有效时直接取；否则 factor × 实际焦距

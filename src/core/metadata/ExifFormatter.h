@@ -24,6 +24,10 @@ QString shutter(double seconds);
 // 光圈：FNumber → "f/5.6"（一位小数去尾零：f/8 而非 f/8.0）
 QString fNumber(double value);
 
+// APEX 光圈值（MaxApertureValue）→ "f/2.8"（f-number = 2^(apex/2)，
+// 该 tag 是 APEX 编码，与 FNumber 直读不同）
+QString apexFNumber(double apex);
+
 // 实际焦距 → "42mm"；等效焦距 → "63mm eq."
 QString focalLength(double mm);
 QString focalLengthEq(double mm);
@@ -40,6 +44,10 @@ QString flash(int value);             // 未闪/闪开/防红眼/强制…
 QString whiteBalance(int value);      // 自动/手动
 QString exposureProgram(int value);   // 手动/程序/光圈优先/快门优先…
 QString sceneCaptureType(int value);  // 标准/人像/风景/夜景/其他
+
+// 富士胶片模拟（FilmMode 枚举）→ "标准/鲜艳/柔和/Pro Neg. Hi/Pro Neg. Std"；
+// 仅映射官方确定的值，未知值返回空（宁缺勿错）
+QString fujiFilmMode(int value);
 
 // GPS：十进制度 → "25°02'06.0\"N"（DMS，Ref 取 N/S/E/W）；非法返回空
 QString gpsDms(double decimal, bool positiveRef, QChar positiveSymbol,

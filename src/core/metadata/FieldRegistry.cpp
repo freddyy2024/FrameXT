@@ -1,5 +1,6 @@
 #include "metadata/FieldRegistry.h"
 
+#include "metadata/BrandRegistry.h"
 #include "metadata/ExifFormatter.h"
 #include "metadata/SensorRegistry.h"
 
@@ -48,6 +49,10 @@ QString formatBy(const FieldDef &def, const RawExif &raw)
         return toDouble(value, d) ? ExifFormatter::shutter(d) : QString();
     case FieldFormat::FNumber:
         return toDouble(value, d) ? ExifFormatter::fNumber(d) : QString();
+    case FieldFormat::ApertureValue:
+        // MaxApertureValue 是 APEX 编码（f=2^(v/2)），与 FNumber 直读不同
+        //（评审 P0：错用 FNumber 格式会把 f/2.8 显示成 "f/3"）
+        return toDouble(value, d) ? ExifFormatter::apexFNumber(d) : QString();
     case FieldFormat::FocalLength:
         return toDouble(value, d) ? ExifFormatter::focalLength(d) : QString();
     case FieldFormat::FocalLengthEq:
@@ -68,25 +73,27 @@ QString formatBy(const FieldDef &def, const RawExif &raw)
         return ExifFormatter::sceneCaptureType(int(value.toDouble()));
     case FieldFormat::DateTime:
         return ExifFormatter::dateTime(value);
+    case FieldFormat::FujiFilmMode:
+        // 富士胶片模拟枚举（仅映射官方确定的五值，其余宁缺勿错）
+        return ExifFormatter::fujiFilmMode(int(value.toDouble()));
     case FieldFormat::GpsLatitude: {
-        // 值形如 "25.0350"（十进制），Ref 从独立 tag 取
+        // 值形如 "25.0350"（十进制），Ref 从独立 tag 取；
+        // Ref 缺失不出值（默认 N/E 会在南/西半球显示错半球，评审 P2）
         const QString ref = raw.value(def.tags.size() > 1
                                           ? def.tags.at(1)
                                           : QString());
-        return toDouble(value, d) ? ExifFormatter::gpsLatitude(d,
-                                                               ref.isEmpty()
-                                                                   ? QChar('N')
-                                                                   : ref.at(0))
+        if (ref.isEmpty())
+            return QString();
+        return toDouble(value, d) ? ExifFormatter::gpsLatitude(d, ref.at(0))
                                   : QString();
     }
     case FieldFormat::GpsLongitude: {
         const QString ref = raw.value(def.tags.size() > 1
                                           ? def.tags.at(1)
                                           : QString());
-        return toDouble(value, d) ? ExifFormatter::gpsLongitude(d,
-                                                                ref.isEmpty()
-                                                                    ? QChar('E')
-                                                                    : ref.at(0))
+        if (ref.isEmpty())
+            return QString();
+        return toDouble(value, d) ? ExifFormatter::gpsLongitude(d, ref.at(0))
                                   : QString();
     }
     case FieldFormat::GpsAltitude: {
@@ -157,8 +164,8 @@ QList<FieldDef> FieldRegistry::allFields()
           { QStringLiteral("Exif.Photo.FocalLengthIn35mmFilm") },
           FieldFormat::FocalLengthEq, false },
         { QStringLiteral("maxAperture"), FieldGroup::Lens,
-          { QStringLiteral("Exif.Photo.MaxApertureValue") }, FieldFormat::FNumber,
-          false },
+          { QStringLiteral("Exif.Photo.MaxApertureValue") },
+          FieldFormat::ApertureValue, false },
         { QStringLiteral("lensSerial"), FieldGroup::Lens,
           { QStringLiteral("Exif.Photo.LensSerialNumber") }, FieldFormat::Raw,
           false },
@@ -174,16 +181,23 @@ QList<FieldDef> FieldRegistry::allFields()
         { QStringLiteral("gpsAltitude"), FieldGroup::Location,
           { QStringLiteral("Exif.GPSInfo.GPSAltitude") },
           FieldFormat::GpsAltitude, false },
-        // —— 品牌特色（MakerNote；各家 key 见 exiv2 厂商组）——
+        // —— 品牌特色（MakerNote；key 经 E:\test photos 真机样张探针核对，
+        //    评审 P1-9：原注册的 FilmModel/Sony2/Nikon3 均不存在于真机）——
+        // 富士胶片模拟：真机 key 为 FilmMode（枚举值，格式化器映射中文名）
         { QStringLiteral("fujiFilmSimulation"), FieldGroup::Maker,
-          { QStringLiteral("Exif.Fujifilm.FilmModel") }, FieldFormat::Raw, false },
+          { QStringLiteral("Exif.Fujifilm.FilmMode") },
+          FieldFormat::FujiFilmMode, false },
+        // 索尼：组名 Sony1（Sony2 是另一代机身组）；值为友好字符串直出
         { QStringLiteral("sonyCreativeStyle"), FieldGroup::Maker,
-          { QStringLiteral("Exif.Sony2.CreativeStyle") }, FieldFormat::Raw, false },
-        { QStringLiteral("nikonPictureControl"), FieldGroup::Maker,
-          { QStringLiteral("Exif.Nikon3.PictureControl") }, FieldFormat::Raw,
+          { QStringLiteral("Exif.Sony1.CreativeStyle") }, FieldFormat::Raw,
           false },
-        { QStringLiteral("canonPictureStyle"), FieldGroup::Maker,
-          { QStringLiteral("Exif.Canon.PictureStyle") }, FieldFormat::Raw, false },
+        // 尼康：组 NikonPc / tag PictureControlName（ASCII 名直出）
+        { QStringLiteral("nikonPictureControl"), FieldGroup::Maker,
+          { QStringLiteral("Exif.NikonPc.PictureControlName") },
+          FieldFormat::Raw, false },
+        // 佳能：真机 tag 为 PictureStyleUserDef（内部数字序列，需厂商
+        // 映射表）——挂账 M3 借更多真实样张确认映射后回归，避免展示
+        // "135 135 135" 垃圾值
     };
 }
 
@@ -234,6 +248,17 @@ QHash<QString, QString> FieldRegistry::resolveDisplay(
                 out.insert(QStringLiteral("focalLengthEq"),
                            ExifFormatter::focalLengthEq(eq));
         }
+    }
+
+    // 品牌展示名（§7.2：make 按品牌别名映射后展示，"NIKON CORPORATION"
+    // → "Nikon"）；model 保持原样。未识别品牌保留原始 make（有信息总比
+    // "Others" 好）
+    const QString displayMake = out.value(QStringLiteral("make"));
+    if (!displayMake.isEmpty()) {
+        const BrandDef brand = BrandRegistry::match(
+            displayMake, raw.value(QStringLiteral("Exif.Image.Model")));
+        if (brand.value != QLatin1String("Others"))
+            out.insert(QStringLiteral("make"), brand.label);
     }
     return out;
 }

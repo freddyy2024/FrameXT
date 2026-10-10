@@ -48,3 +48,4 @@ target_link_libraries(test_brand PRIVATE framext_core Qt6::Core Qt6::Test)
 
 add_test(NAME test_samples COMMAND test_samples)
 add_test(NAME test_brand COMMAND test_brand)
+

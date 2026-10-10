@@ -34,6 +34,27 @@ void wr32(QByteArray &d, int pos, quint32 v)
     d[pos + 2] = char((v >> 16) & 0xFF);
     d[pos + 3] = char((v >> 24) & 0xFF);
 }
+quint16 rd16be(const QByteArray &d, int pos)
+{
+    return quint16((uchar(d.at(pos)) << 8) | uchar(d.at(pos + 1)));
+}
+quint32 rd32be(const QByteArray &d, int pos)
+{
+    return (quint32(uchar(d.at(pos))) << 24) | (quint32(uchar(d.at(pos + 1))) << 16)
+        | (quint32(uchar(d.at(pos + 2))) << 8) | quint32(uchar(d.at(pos + 3)));
+}
+void wr16be(QByteArray &d, int pos, quint16 v)
+{
+    d[pos] = char((v >> 8) & 0xFF);
+    d[pos + 1] = char(v & 0xFF);
+}
+void wr32be(QByteArray &d, int pos, quint32 v)
+{
+    d[pos] = char((v >> 24) & 0xFF);
+    d[pos + 1] = char((v >> 16) & 0xFF);
+    d[pos + 2] = char((v >> 8) & 0xFF);
+    d[pos + 3] = char(v & 0xFF);
+}
 
 // —— 手工构造最小 Exif TIFF（II 小端）——
 // IFD0: Orientation(SHORT)=6 / XResolution(RATIONAL)=72/1 / GPS 指针(LONG)
@@ -83,6 +104,93 @@ QByteArray makeSampleTiff()
     t[gpsIfd + 10] = 'N';
     t[gpsIfd + 11] = '\0';
     wr32(t, gpsIfd + 14, 0);
+    return t;
+}
+
+// —— 富样例 TIFF（II 小端，评审 P0 回归专用）——
+// IFD0: Orientation=6 / XRes=72/1 / 0x8769 ExifIFD / 0x8825 GPS 指针
+// ExifIFD: ExposureTime=1/160 / PixelXDimension / PixelYDimension（SHORT 内联）
+// GPS IFD: GPSLatitudeRef "N" 内联 + GPSLatitude=25°2'6"（数据区 RATIONAL×3）
+// 布局（绝对 offset）：header 0-8 | IFD0 8-62 | xresVal 62 | GPS IFD 70-100
+// | GPS 数据 100-124 | ExifIFD 124-166 | 曝光数据 166-174，总长 174
+QByteArray makeRichTiff()
+{
+    const int ifd0 = 8;
+    const int xresVal = 62;
+    const int gpsIfd = 70;
+    const int gpsData = 100;
+    const int exifIfd = 124;
+    const int exifData = 166;
+
+    QByteArray t;
+    t.append("II");
+    t.resize(8);
+    wr16(t, 2, 42);
+    wr32(t, 4, quint32(ifd0));
+    t.resize(exifData + 8);
+
+    // IFD0：count=4
+    wr16(t, ifd0, 4);
+    wr16(t, ifd0 + 2, 0x0112);       // Orientation SHORT=6
+    wr16(t, ifd0 + 4, 3);
+    wr32(t, ifd0 + 6, 1);
+    wr16(t, ifd0 + 10, 6);
+    wr16(t, ifd0 + 12, 0);
+    wr16(t, ifd0 + 14, 0x011A);      // XResolution RATIONAL → 数据区
+    wr16(t, ifd0 + 16, 5);
+    wr32(t, ifd0 + 18, 1);
+    wr32(t, ifd0 + 22, quint32(xresVal));
+    wr16(t, ifd0 + 26, 0x8769);      // ExifIFD 指针 LONG
+    wr16(t, ifd0 + 28, 4);
+    wr32(t, ifd0 + 30, 1);
+    wr32(t, ifd0 + 34, quint32(exifIfd));
+    wr16(t, ifd0 + 38, 0x8825);      // GPS 指针 LONG（strip 目标）
+    wr16(t, ifd0 + 40, 4);
+    wr32(t, ifd0 + 42, 1);
+    wr32(t, ifd0 + 46, quint32(gpsIfd));
+    wr32(t, ifd0 + 50, 0);           // next IFD = 0
+
+    wr32(t, xresVal, 72);
+    wr32(t, xresVal + 4, 1);
+
+    // GPS IFD：count=2（e0 = 72..84 含 4 字节 value 字段，e1 从 84 起）
+    wr16(t, gpsIfd, 2);
+    wr16(t, gpsIfd + 2, 0x0001);     // GPSLatitudeRef ASCII "N\0" 内联
+    wr16(t, gpsIfd + 4, 2);
+    wr32(t, gpsIfd + 6, 2);
+    t[gpsIfd + 10] = 'N';
+    t[gpsIfd + 11] = '\0';
+    wr16(t, gpsIfd + 14, 0x0002);    // e1@84：GPSLatitude RATIONAL×3 → 数据区
+    wr16(t, gpsIfd + 16, 5);
+    wr32(t, gpsIfd + 18, 3);
+    wr32(t, gpsIfd + 22, quint32(gpsData));
+    wr32(t, gpsIfd + 26, 0);
+    wr32(t, gpsData, 25);
+    wr32(t, gpsData + 4, 1);
+    wr32(t, gpsData + 8, 2);
+    wr32(t, gpsData + 12, 1);
+    wr32(t, gpsData + 16, 6);
+    wr32(t, gpsData + 20, 10);
+
+    // ExifIFD：count=3
+    wr16(t, exifIfd, 3);
+    wr16(t, exifIfd + 2, 0x829A);    // ExposureTime RATIONAL → 数据区
+    wr16(t, exifIfd + 4, 5);
+    wr32(t, exifIfd + 6, 1);
+    wr32(t, exifIfd + 10, quint32(exifData));
+    wr16(t, exifIfd + 14, 0xA002);   // PixelXDimension SHORT 内联
+    wr16(t, exifIfd + 16, 3);
+    wr32(t, exifIfd + 18, 1);
+    wr16(t, exifIfd + 22, 0);        // e1 value 低 2B（值由 setShort 覆写）
+    wr16(t, exifIfd + 24, 0);        // e1 value 高 2B（padding，必须写零）
+    wr16(t, exifIfd + 26, 0xA003);   // e2@150：PixelYDimension SHORT 内联
+    wr16(t, exifIfd + 28, 3);
+    wr32(t, exifIfd + 30, 1);
+    wr16(t, exifIfd + 32, 0);        // e2 value @158
+    wr16(t, exifIfd + 34, 0);
+    wr32(t, exifIfd + 38, 0);
+    wr32(t, exifData, 1);
+    wr32(t, exifData + 4, 160);
     return t;
 }
 
@@ -170,6 +278,18 @@ private slots:
     void muxerStripGpsPolicy() const;
     void muxerJpegWithoutExifWritesNoApp1() const;
     void muxerPngCompose() const;
+    // —— 评审回归（M2 评审 P0/P1 修复的防回归锁定）——
+    void exifStripGpsKeepsExifIfdReadable() const;
+    void exifStripGpsClearsGpsBytes() const;
+    void exifSetRationalEvilOffsetNoCrash() const;
+    void exifBigEndianPositivePath() const;
+    void jpegSpliceKeepsApp0() const;
+    void jpegFuzzHeavyDuty() const;
+    void muxerXmpApp1NotMisdetected() const;
+    void muxerComposeFromExifFullChain() const;
+    void muxerExportPolicyNegative() const;
+    void pngChunkOrderBeforeIdat() const;
+    void pngCrcGeneratedMatchesZlib() const;
 };
 
 void TestMetadata::jpegParseRoundTrip() const
@@ -398,7 +518,13 @@ void TestMetadata::muxerPngCompose() const
     policy.fixedDpi = 350;
 
     const QByteArray out = MetadataMuxer::composePng(encoded, source, policy);
-    QCOMPARE(PngChunkIO::chunkData(out, "eXIf"), makeSampleTiff());   // 原样搬运
+    // eXIf：搬运 + 导出语义覆写（makeSampleTiff 的 entry0 即 Orientation，
+    // 源值 6 → 出图应为 1：像素已转正，元数据与新画布一致）
+    const QByteArray exif = PngChunkIO::chunkData(out, "eXIf");
+    QVERIFY(!exif.isEmpty());
+    QVERIFY(exif.size() >= 20);
+    QCOMPARE(quint8(exif.at(18)), quint8(1));   // Orientation 低字节
+    QCOMPARE(quint8(exif.at(19)), quint8(0));
     QCOMPARE(PngChunkIO::chunkData(out, "iCCP"), QByteArray("zlib-icc-bytes"));
     // pHYs：350 dpi → 13780 ppm（大端读回）
     const QByteArray phys = PngChunkIO::chunkData(out, "pHYs");
@@ -407,6 +533,263 @@ void TestMetadata::muxerPngCompose() const
         | (quint32(uchar(phys.at(1))) << 16) | (quint32(uchar(phys.at(2))) << 8)
         | quint32(uchar(phys.at(3)));
     QCOMPARE(ppm, quint32(13780));
+}
+
+// —— 评审回归用例 ——
+
+void TestMetadata::exifStripGpsKeepsExifIfdReadable() const
+{
+    // P0-1：strip 后其他 IFD 的 offset 必须仍然有效（0x8769 指针不动、
+    // ExifIFD 的 ExposureTime 数据按原 offset 可读、XRes 数据区不动）
+    const QByteArray tiff = makeRichTiff();
+    const QByteArray out = ExifIfdEditor::stripGps(tiff);
+    QCOMPARE(out.size(), tiff.size());
+    QCOMPARE(rd32(out, 62), quint32(72));      // XRes 数据区 72/1 未错位
+    QCOMPARE(rd32(out, 42), quint32(124));     // 0x8769 指针值不变
+    QCOMPARE(rd16(out, 124), quint16(3));      // ExifIFD count 完整
+    QCOMPARE(rd32(out, 166), quint32(1));      // ExposureTime 1/160
+    QCOMPARE(rd32(out, 170), quint32(160));    // 按原 offset 可读
+    // Orientation entry 仍在 IFD0
+    QCOMPARE(rd16(out, 8 + 2), quint16(0x0112));
+}
+
+void TestMetadata::exifStripGpsClearsGpsBytes() const
+{
+    // P0-1 隐私：GPS IFD 区域与坐标数据区整体清零（不可取证还原）
+    const QByteArray out = ExifIfdEditor::stripGps(makeRichTiff());
+    // GPS IFD（70-100）+ 坐标数据区（100-124）全零
+    QCOMPARE(out.mid(70, 54), QByteArray(54, char(0)));
+    // IFD0 被删 entry 的 12 字节（46-58）置零
+    QCOMPARE(out.mid(46, 12), QByteArray(12, char(0)));
+    // IFD0 count 4→3
+    QCOMPARE(rd16(out, 8), quint16(3));
+}
+
+void TestMetadata::exifSetRationalEvilOffsetNoCrash() const
+{
+    // P0：valueOffset≈0xFFFFFFFF 的 quint32 回绕不得绕过边界检查
+    QByteArray evil = makeSampleTiff();
+    wr32(evil, 30, 0xFFFFFFF8u);   // XRes entry 的 valueOffset
+    QCOMPARE(ExifIfdEditor::setRational(evil, ExifIfdEditor::Ifd::Ifd0,
+                                        ExifIfdEditor::TagXResolution, 1, 2),
+             evil);   // 越界：原样返回，不崩不写
+    // 贴边（offset+8==size）合法：应正常写入
+    QByteArray edge = makeSampleTiff();
+    wr32(edge, 30, quint32(edge.size() - 8));
+    const QByteArray out = ExifIfdEditor::setRational(
+        edge, ExifIfdEditor::Ifd::Ifd0, ExifIfdEditor::TagXResolution, 1, 2);
+    QCOMPARE(rd32(out, edge.size() - 8), quint32(1));
+}
+
+void TestMetadata::exifBigEndianPositivePath() const
+{
+    // P1：MM 大端正向路径（此前只有 junk 负例）
+    QByteArray mm;
+    mm.append("MM");
+    mm.resize(8);
+    wr16be(mm, 2, 42);
+    wr32be(mm, 4, 8);
+    mm.resize(26);
+    wr16be(mm, 8, 1);           // IFD0 count=1
+    wr16be(mm, 10, 0x0112);     // Orientation
+    wr16be(mm, 12, 3);          // SHORT
+    wr32be(mm, 14, 1);          // count
+    wr16be(mm, 18, 6);          // value = 6（旋转 90°）
+    wr16be(mm, 20, 0);
+    wr32be(mm, 22, 0);          // next IFD
+
+    const QByteArray out = ExifIfdEditor::setShort(
+        mm, ExifIfdEditor::Ifd::Ifd0, ExifIfdEditor::TagOrientation, 1);
+    QCOMPARE(out.size(), mm.size());
+    QCOMPARE(rd16be(out, 18), quint16(1));   // 大端读回 1
+    // 无 GPS：stripGps 原样
+    QCOMPARE(ExifIfdEditor::stripGps(mm), mm);
+}
+
+void TestMetadata::jpegSpliceKeepsApp0() const
+{
+    // P1：APP0-JFIF 豁免（含 density；删除会让 DPI 语义缺半边）
+    const QByteArray encoded = makeSampleJpeg({ { 0xE0, QByteArray("JFIF-density") } });
+    const QByteArray out = JpegSegmentIO::splice(encoded, {});
+    QVERIFY(out.contains(QByteArrayLiteral("JFIF-density")));
+    // APP0 不再作为元数据段收集（parse 只管 E1/E2/ED/FE）
+    QVERIFY(JpegSegmentIO::parse(out).isEmpty());
+}
+
+void TestMetadata::jpegFuzzHeavyDuty() const
+{
+    // P1 fuzz 补强：全 FF / 全 00 / 长度 0-1 / 超长段
+    const QByteArray soi = QByteArrayLiteral("\xFF\xD8");
+    QVERIFY(JpegSegmentIO::parse(soi + QByteArray(512, char(0xFF))).isEmpty());
+    QVERIFY(JpegSegmentIO::parse(soi + QByteArray(512, char(0x00))).isEmpty());
+    QVERIFY(JpegSegmentIO::parse(QByteArrayLiteral("\xFF\xD8\xFF\xE1\x00\x00"))
+                .isEmpty());   // length=0
+    QVERIFY(JpegSegmentIO::parse(QByteArrayLiteral("\xFF\xD8\xFF\xE1\x00\x01"))
+                .isEmpty());   // length=1
+    QVERIFY(JpegSegmentIO::parse(soi + QByteArrayLiteral("\xFF\xFF")).isEmpty());
+    // splice 超长段（>65533）：丢段且输出结构完好
+    QList<JpegSegment> meta;
+    JpegSegment seg;
+    seg.marker = 0xFE;
+    seg.payload = QByteArray(70000, 'x');
+    meta.append(seg);
+    const QByteArray out = JpegSegmentIO::splice(makeSampleJpeg({}), meta);
+    QVERIFY(JpegSegmentIO::parse(out).isEmpty());
+    QVERIFY(out.endsWith(QByteArrayLiteral("\xFF\xD9")));
+}
+
+void TestMetadata::muxerXmpApp1NotMisdetected() const
+{
+    // P0：XMP APP1（Lightroom/手机常见）不得被误包成 "Exif\0\0" 伪段
+    const QByteArray xmpPayload
+        = QByteArray("http://ns.adobe.com/xap/1.0/\x00", 29)
+        + QByteArrayLiteral("<x:xmpmeta>meta</x:xmpmeta>");
+    const QByteArray source = makeSampleJpeg({ { 0xE1, xmpPayload } });
+
+    const QByteArray out = MetadataMuxer::composeJpeg(makeSampleJpeg({}), source,
+                                                      ExportPolicy());
+    QVERIFY(MetadataMuxer::exifTiffFromJpeg(out).isEmpty());
+    for (const JpegSegment &seg : JpegSegmentIO::parse(out))
+        QVERIFY(!seg.payload.startsWith(QByteArrayLiteral("Exif\0\0")));
+    QVERIFY(out.contains(QByteArrayLiteral("<x:xmpmeta>")));   // XMP 原样保留
+
+    // stripGps 时 XMP 整段丢弃（隐私：XMP 可嵌坐标）
+    ExportPolicy policy;
+    policy.stripGps = true;
+    const QByteArray out2 = MetadataMuxer::composeJpeg(makeSampleJpeg({}), source,
+                                                       policy);
+    QVERIFY(!out2.contains(QByteArrayLiteral("<x:xmpmeta>")));
+}
+
+void TestMetadata::muxerComposeFromExifFullChain() const
+{
+    // P0：跨格式重建路径（设计 §4.8）此前零覆盖
+    ExportPolicy policy;
+    policy.outputSize = QSize(1200, 800);
+    QByteArray icc(70000, char(0x5A));   // >64KB：触发 ICC 分段
+
+    const QByteArray out = MetadataMuxer::composeJpegFromExif(
+        makeSampleJpeg({}), makeRichTiff(), icc, policy);
+
+    // APP1：Exif 可读 + 导出覆写（Orientation=1 / PixelDimension=输出尺寸）
+    const QByteArray tiff = MetadataMuxer::exifTiffFromJpeg(out);
+    QVERIFY(!tiff.isEmpty());
+    QCOMPARE(rd16(tiff, 18), quint16(1));        // Orientation
+    QCOMPARE(rd16(tiff, 124 + 14 + 8), quint16(1200));   // PixelXDimension
+    QCOMPARE(rd16(tiff, 124 + 26 + 8), quint16(800));    // PixelYDimension
+
+    // APP2：ICC 规范分段，seqno/total 正确，拼接还原
+    QByteArray joined;
+    int iccSegCount = 0;
+    for (const JpegSegment &seg : JpegSegmentIO::parse(out)) {
+        if (seg.marker != 0xE2)
+            continue;
+        ++iccSegCount;
+        QVERIFY(seg.payload.startsWith(QByteArrayLiteral("ICC_PROFILE\0")));
+        QCOMPARE(quint8(seg.payload.at(12)), quint8(iccSegCount));   // seqno
+        QCOMPARE(quint8(seg.payload.at(13)), quint8(2));             // total
+        joined += seg.payload.mid(16);
+    }
+    QCOMPARE(iccSegCount, 2);
+    QCOMPARE(joined, icc);
+}
+
+
+void TestMetadata::muxerExportPolicyNegative() const
+{
+    const QByteArray source = makeSampleJpeg({
+        { 0xE1, makeApp1Payload(makeRichTiff()) },
+        { 0xE2, QByteArray("ICC_PROFILE\0", 12) + QByteArray("icc") },
+        { 0xED, QByteArray("iptc") },
+        { 0xFE, QByteArray("comment") },
+    });
+
+    // 全关：不搬任何元数据段
+    ExportPolicy off;
+    off.keepExif = false;
+    off.keepIcc = false;
+    off.keepIptcXmp = false;
+    const QByteArray outOff = MetadataMuxer::composeJpeg(makeSampleJpeg({}), source,
+                                                         off);
+    QVERIFY(JpegSegmentIO::parse(outOff).isEmpty());
+
+    // 默认开 + stripGps：Exif/ICC 保留，APP13/COM 丢弃
+    ExportPolicy policy;
+    policy.stripGps = true;
+    const QByteArray out = MetadataMuxer::composeJpeg(makeSampleJpeg({}), source,
+                                                      policy);
+    bool hasIptc = false;
+    bool hasCom = false;
+    bool hasIcc = false;
+    for (const JpegSegment &seg : JpegSegmentIO::parse(out)) {
+        if (seg.marker == 0xED)
+            hasIptc = true;
+        if (seg.marker == 0xFE)
+            hasCom = true;
+        if (seg.marker == 0xE2)
+            hasIcc = true;
+    }
+    QVERIFY(!hasIptc);   // stripGps：IPTC 嵌坐标风险，整段弃
+    QVERIFY(!hasCom);
+    QVERIFY(hasIcc);
+    // Exif 在且 GPS 已摘（IFD0 count 4→3）
+    const QByteArray tiff = MetadataMuxer::exifTiffFromJpeg(out);
+    QCOMPARE(rd16(tiff, 8), quint16(3));
+}
+
+void TestMetadata::pngChunkOrderBeforeIdat() const
+{
+    // P1：辅助 chunk 必须插在首个 IDAT 前（libpng 忽略 IDAT 后的辅助段）
+    const QByteArray png = makeSamplePng({ { "eXIf", QByteArray("t") } });
+    const QByteArray out = PngChunkIO::setChunk(png, PngChunkIO::makePhys(72.0));
+    int physIdx = -1;
+    int idatIdx = -1;
+    const auto chunks = PngChunkIO::parse(out);
+    for (int i = 0; i < chunks.size(); ++i) {
+        if (chunks[i].type == QByteArrayLiteral("pHYs"))
+            physIdx = i;
+        if (chunks[i].type == QByteArrayLiteral("IDAT") && idatIdx < 0)
+            idatIdx = i;
+    }
+    QVERIFY(physIdx >= 0);
+    QVERIFY(idatIdx > physIdx);   // pHYs 先于 IDAT
+    // 删除同类型段功能不受影响（data 为空 = 仅删除）
+    PngChunkIO::Chunk emptyPhys;
+    emptyPhys.type = QByteArrayLiteral("pHYs");
+    const QByteArray noPhys = PngChunkIO::setChunk(out, emptyPhys);
+    QVERIFY(PngChunkIO::chunkData(noPhys, "pHYs").isEmpty());
+}
+
+void TestMetadata::pngCrcGeneratedMatchesZlib() const
+{
+    // P1：CRC 生成端用独立实现 + zlib 已知向量双重校验
+    auto slowCrc32 = [](const QByteArray &data) {
+        quint32 crc = 0xFFFFFFFFu;
+        for (uchar ch : data) {
+            crc ^= ch;
+            for (int k = 0; k < 8; ++k)
+                crc = (crc & 1) ? (0xEDB88320u ^ (crc >> 1)) : (crc >> 1);
+        }
+        return crc ^ 0xFFFFFFFFu;
+    };
+    QCOMPARE(slowCrc32(QByteArrayLiteral("123456789")), quint32(0xCBF43926u));
+
+    const QByteArray out = PngChunkIO::setChunk(makeSamplePng({}),
+                                                PngChunkIO::makePhys(72.0));
+    int i = 8;
+    const int n = out.size();
+    while (i + 12 <= n) {
+        const quint32 len = rd32be(out, i);
+        const QByteArray type = out.mid(i + 4, 4);
+        if (type == QByteArrayLiteral("pHYs")) {
+            // chunk CRC = type+data 的 CRC-32（大端存储）
+            QCOMPARE(rd32be(out, int(i + 8 + len)),
+                     slowCrc32(out.mid(i + 4, int(4 + len))));
+            return;
+        }
+        i += 12 + int(len);
+    }
+    QFAIL("未找到 pHYs chunk");
 }
 
 QTEST_MAIN(TestMetadata)

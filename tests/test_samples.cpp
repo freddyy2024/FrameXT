@@ -211,6 +211,9 @@ void TestSamples::muxerRoundTripPreservesIcc() const
         ++withIcc;
     }
     qInfo() << "含 ICC 样本数：" << withIcc;
+    // 假绿护栏（评审 P0）：样本集必须有足量含 ICC 样本，否则本用例
+    // 从未真正执行过断言（替换样张集时同步维护）
+    QVERIFY2(withIcc >= 5, "样张集含 ICC 样本不足 5 张，ICC 保真断言覆盖失效");
 }
 
 void TestSamples::muxerStripGpsRemovesLocation() const
@@ -253,6 +256,8 @@ void TestSamples::muxerStripGpsRemovesLocation() const
                                 .arg(QFileInfo(path).fileName())));
     }
     qInfo() << "含 GPS 样本数：" << withGps;
+    // 假绿护栏（评审 P0）：GPS 摘除是隐私红线，样本集必须真实覆盖
+    QVERIFY2(withGps >= 1, "样张集无含 GPS 样本，GPS 摘除断言从未执行");
 }
 
 QTEST_MAIN(TestSamples)
