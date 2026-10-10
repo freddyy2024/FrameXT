@@ -69,9 +69,19 @@ TitleBar::TitleBar(QWidget *parent)
     m_languageButton->setFocusPolicy(Qt::NoFocus);
 
     auto *languageMenu = new QMenu(m_languageButton);
-    languageMenu->addAction(QStringLiteral("简体中文"));
-    languageMenu->addAction(QStringLiteral("繁體中文"));
-    languageMenu->addAction(QStringLiteral("English"));
+    const QList<QPair<QString, QString>> languages = {
+        { QStringLiteral("简体中文"), QStringLiteral("zh-CN") },
+        { QStringLiteral("繁體中文"), QStringLiteral("zh-TW") },
+        { QStringLiteral("English"), QStringLiteral("en") },
+    };
+    for (const auto &[name, code] : languages) {
+        QAction *action = languageMenu->addAction(name);
+        action->setData(code);
+    }
+    connect(languageMenu, &QMenu::triggered, this,
+            [this](QAction *action) {
+                emit languageSelected(action->data().toString());
+            });
     m_languageButton->setMenu(languageMenu);
     m_languageButton->setPopupMode(QToolButton::InstantPopup);
     layout->addWidget(m_languageButton);

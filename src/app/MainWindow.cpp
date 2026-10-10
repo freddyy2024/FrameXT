@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 
+#include "AppInfo.h"
 #include "Theme.h"
 #include "TitleBar.h"
 #include "canvas/PreviewCanvas.h"
@@ -12,7 +13,9 @@
 #include <QAbstractItemView>
 #include <QApplication>
 #include <QCheckBox>
+#include <QCloseEvent>
 #include <QComboBox>
+#include <QDialog>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QEvent>
@@ -25,9 +28,11 @@
 #include <QMessageBox>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QProcess>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QScreen>
+#include <QSettings>
 #include <QSlider>
 #include <QSplitter>
 #include <QTimer>
@@ -149,6 +154,25 @@ void MainWindow::buildUi()
         isMaximized() ? showNormal() : showMaximized();
     });
     connect(m_titleBar, &TitleBar::closeClicked, this, &QWidget::close);
+    connect(m_titleBar, &TitleBar::languageSelected, this,
+            [this](const QString &code) {
+                // i18n（3.9）：写持久化 key，重启后生效（自重启最可靠，
+                // 避免遍历 retranslate 全部自绘控件）
+                QSettings settings;
+                const QString current =
+                    settings.value(QStringLiteral("app/language"),
+                                   QStringLiteral("zh-CN")).toString();
+                if (current == code)
+                    return;
+                settings.setValue(QStringLiteral("app/language"), code);
+                const auto answer = QMessageBox::question(
+                    this, tr("切换界面语言"),
+                    tr("语言将在重启应用后生效。立即重启吗？"));
+                if (answer != QMessageBox::Yes)
+                    return;
+                QProcess::startDetached(QApplication::applicationFilePath());
+                close();
+            });
     rootLayout->addWidget(m_titleBar);
 
     // 中部三栏（QSplitter，可拖动调宽）
@@ -374,6 +398,7 @@ void MainWindow::buildUi()
             });
 
     updateEmptyState();
+    restoreWindowState();
     setWindowTitle("FrameXT");
 }
 
@@ -400,10 +425,12 @@ QWidget *MainWindow::buildLeftPanel()
     importButton->setObjectName("primaryButton");
     connect(importButton, &QPushButton::clicked, this, [this] {
         const auto files = QFileDialog::getOpenFileNames(
-            this, tr("选择照片"), QString(),
+            this, tr("选择照片"), m_lastDir,
             tr("照片文件 (%1)").arg(QStringLiteral("*.jpg *.jpeg *.png *.webp *.tif *.tiff")));
-        if (!files.isEmpty())
+        if (!files.isEmpty()) {
+            m_lastDir = QFileInfo(files.first()).absolutePath();
             importPaths(files);
+        }
     });
     ioLayout->addWidget(importButton);
 
@@ -416,6 +443,13 @@ QWidget *MainWindow::buildLeftPanel()
     exportButton->setEnabled(false);
     exportButton->setToolTip(tr("导出功能将在 M4 接入"));
     ioLayout->addWidget(exportButton);
+
+    auto *aboutButton = new QPushButton(tr("关于 FrameXT"), ioContent);
+    aboutButton->setObjectName("secondaryButton");
+    connect(aboutButton, &QPushButton::clicked, this,
+            &MainWindow::showAbout);
+    ioLayout->addWidget(aboutButton);
+
     layout->addWidget(createCard(tr("导入导出"), QString(), ioContent));
 
     return panel;
@@ -653,6 +687,93 @@ void MainWindow::showToast(const QString &text)
     m_toastTimer->start(3000);
 }
 
+void MainWindow::restoreWindowState()
+{
+    // 3.10 持久化：窗口几何/分割器/最近目录（QSettings 由 main.cpp 注册
+    // org/app 名；无保存值时走屏幕收敛的默认布局）
+    QSettings settings;
+    const QByteArray geo =
+        settings.value(QStringLiteral("window/geometry")).toByteArray();
+    if (!geo.isEmpty())
+        restoreGeometry(geo);
+
+    m_lastDir = settings.value(QStringLiteral("import/lastDir"))
+                    .toString();
+
+    const QByteArray mainSizes = settings
+                                     .value(QStringLiteral("window/mainSplitter"))
+                                     .toByteArray();
+    if (!mainSizes.isEmpty() && m_mainSplitter)
+        m_mainSplitter->restoreState(mainSizes);
+    const QByteArray rootSizes = settings
+                                     .value(QStringLiteral("window/rootSplitter"))
+                                     .toByteArray();
+    if (!rootSizes.isEmpty())
+        m_mainSplitter->parentWidget()->findChild<QSplitter *>(
+            QStringLiteral("rootSplitter"))
+            ->restoreState(rootSizes);
+}
+
+void MainWindow::saveWindowState()
+{
+    QSettings settings;
+    settings.setValue(QStringLiteral("window/geometry"), saveGeometry());
+    settings.setValue(QStringLiteral("window/mainSplitter"),
+                      m_mainSplitter ? m_mainSplitter->saveState()
+                                     : QByteArray());
+    const auto *rootSplitter =
+        m_mainSplitter ? m_mainSplitter->parentWidget()->findChild<QSplitter *>(
+                             QStringLiteral("rootSplitter"))
+                       : nullptr;
+    settings.setValue(QStringLiteral("window/rootSplitter"),
+                      rootSplitter ? rootSplitter->saveState() : QByteArray());
+    settings.setValue(QStringLiteral("import/lastDir"), m_lastDir);
+}
+
+void MainWindow::showAbout()
+{
+    // §4 统一对话框规格：模态、圆角 5、顶栏 40 + 底部按钮区
+    QDialog about(this);
+    about.setWindowTitle(tr("关于 FrameXT"));
+    about.setModal(true);
+    about.setFixedWidth(420);
+    auto *layout = new QVBoxLayout(&about);
+    layout->setContentsMargins(24, 20, 24, 16);
+    layout->setSpacing(8);
+
+    auto *title = new QLabel(
+        QStringLiteral("FrameXT %1").arg(fxt::AppInfo::versionText()), &about);
+    title->setObjectName("panelTitle");
+    layout->addWidget(title);
+    auto *desc = new QLabel(
+        tr("本地照片边框水印工具 — 照片不会离开这台电脑。"), &about);
+    desc->setWordWrap(true);
+    layout->addWidget(desc);
+    auto *home = new QLabel(
+        QStringLiteral("<a href=\"%1\">%1</a>")
+            .arg(QString::fromLatin1(fxt::AppInfo::kHomePage)), &about);
+    home->setOpenExternalLinks(true);
+    layout->addWidget(home);
+    auto *license = new QLabel(
+        tr("本软件使用了 Qt、exiv2、libpng、libjpeg、zlib 等开源组件，\n"
+           "许可声明见安装目录 licenses/。"), &about);
+    license->setWordWrap(true);
+    license->setStyleSheet(QStringLiteral("color: %1")
+                               .arg(Theme::kTextSecondary.name()));
+    layout->addWidget(license);
+
+    layout->addSpacing(8);
+    auto *buttonRow = new QHBoxLayout();
+    buttonRow->addStretch();
+    auto *closeButton = new QPushButton(tr("关闭"), &about);
+    closeButton->setObjectName("primaryButton");
+    connect(closeButton, &QPushButton::clicked, &about, &QDialog::accept);
+    buttonRow->addWidget(closeButton);
+    layout->addLayout(buttonRow);
+
+    about.exec();
+}
+
 void MainWindow::updateEmptyState()
 {
     const bool empty = m_project->documents().isEmpty();
@@ -705,6 +826,12 @@ void MainWindow::dropEvent(QDropEvent *event)
     if (!paths.isEmpty())
         importPaths(paths);
     event->acceptProposedAction();
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    saveWindowState();
+    QMainWindow::closeEvent(event);
 }
 
 void MainWindow::changeEvent(QEvent *event)

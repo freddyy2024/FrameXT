@@ -3,6 +3,10 @@
     <qresource prefix="/theme">
         <file alias="theme-light.qss">resources/theme/theme-light.qss</file>
     </qresource>
+    <qresource prefix="/i18n">
+        <file alias="app_zh_TW.qm">resources/i18n/app_zh_TW.qm</file>
+        <file alias="app_en.qm">resources/i18n/app_en.qm</file>
+    </qresource>
     <qresource prefix="/icons">
         <file alias="logo.png">resources/icons/logo.png</file>
         <file alias="logo-1024px.png">resources/icons/logo-1024px.png</file>

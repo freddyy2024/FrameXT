@@ -33,6 +33,7 @@ protected:
     void changeEvent(QEvent *event) override;
     void dragEnterEvent(QDragEnterEvent *event) override;
     void dropEvent(QDropEvent *event) override;
+    void closeEvent(QCloseEvent *event) override;
 
 #if defined(Q_OS_WIN)
     void showEvent(QShowEvent *event) override;
@@ -63,6 +64,9 @@ private:
     void refreshWatermarkPanel();
     void showElementContextMenu(const QUuid &elementId, const QPoint &globalPos);
     void showToast(const QString &text);
+    void showAbout();
+    void restoreWindowState();   // QSettings：几何/分割器/最近目录（3.10）
+    void saveWindowState();
     void updateEmptyState();
     void confirmClear();
 
@@ -84,6 +88,7 @@ private:
     QLabel *m_importSummary = nullptr;   // 左栏导入状态行
     QLabel *m_toast = nullptr;           // 批量操作结果提示（3s 自动消失）
     QTimer *m_toastTimer = nullptr;
+    QString m_lastDir;                   // 最近导入目录（3.10 持久化）
 };
 
 } // namespace fxt

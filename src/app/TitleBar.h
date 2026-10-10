@@ -29,6 +29,8 @@ signals:
     void minimizeClicked();
     void maximizeClicked();
     void closeClicked();
+    // i18n（3.9）：语言菜单选择（"zh-CN" / "zh-TW" / "en"）
+    void languageSelected(const QString &code);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
