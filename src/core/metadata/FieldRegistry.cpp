@@ -1,6 +1,7 @@
 #include "metadata/FieldRegistry.h"
 
 #include "metadata/ExifFormatter.h"
+#include "metadata/SensorRegistry.h"
 
 namespace fxt {
 
@@ -217,6 +218,22 @@ QHash<QString, QString> FieldRegistry::resolveDisplay(
         const QString formatted = formatBy(def, raw);
         if (!formatted.isEmpty())
             out.insert(def.key, formatted);
+    }
+
+    // 等效焦距回退（R8）：Exif 无 FocalLengthIn35mmFilm 时按机型传感器
+    // 规格换算（内置表，未收录回落全画幅=不出 eq.，宁缺勿错）
+    if (!out.contains(QStringLiteral("focalLengthEq"))) {
+        double actual = 0;
+        if (toDouble(raw.value(QStringLiteral("Exif.Photo.FocalLength")), actual)
+            && actual > 0) {
+            const double factor = SensorRegistry::cropFactorFor(
+                raw.value(QStringLiteral("Exif.Image.Make")),
+                raw.value(QStringLiteral("Exif.Image.Model")));
+            const double eq = SensorRegistry::effectiveFocal(actual, 0, factor);
+            if (eq > 0)
+                out.insert(QStringLiteral("focalLengthEq"),
+                           ExifFormatter::focalLengthEq(eq));
+        }
     }
     return out;
 }

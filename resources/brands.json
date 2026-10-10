@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "description": "品牌识别表（02-技术设计 §4.6）。M2 阶段内置表（BrandRegistry.cpp）为准，本文件为 M5 Logo 管理器的读写格式规范；两处需保持同步，M5 起 JSON 成为唯一数据源。",
+  "brands": [
+    { "value": "Canon", "label": "Canon", "aliases": ["Canon"], "modelPrefixes": [], "logo": ":/logos/camera/Canon_1440_301.png" },
+    { "value": "Nikon", "label": "Nikon", "aliases": ["Nikon"], "modelPrefixes": [], "logo": ":/logos/camera/Nikon-700-700.png" },
+    { "value": "Sony", "label": "Sony", "aliases": ["Sony"], "modelPrefixes": ["ILCE", "NEX"], "logo": ":/logos/camera/sony-logo-1100-194.png" },
+    { "value": "Fujifilm", "label": "Fujifilm", "aliases": ["FUJIFILM", "Fujifilm"], "modelPrefixes": ["X100", "X-T", "X-E", "X-S", "X-Pro", "X-A", "X-H", "GFX"], "logo": ":/logos/camera/fujifilm-logo-1100-183.png" },
+    { "value": "Olympus", "label": "OM System", "aliases": ["Olympus", "OM Digital Solutions", "OMDS", "OM SYSTEM"], "modelPrefixes": ["OM-1", "OM-5", "OM-D", "E-M1", "E-M5", "E-M10", "PEN"], "logo": ":/logos/camera/Olympus-Logo-1440-331.png" },
+    { "value": "Panasonic", "label": "LUMIX", "aliases": ["Panasonic", "LUMIX"], "modelPrefixes": ["DC-", "DMC-"], "logo": ":/logos/camera/panasonic-logo-1440-228.png" },
+    { "value": "Leica", "label": "Leica", "aliases": ["Leica"], "modelPrefixes": [], "logo": ":/logos/camera/leica-logo-700-700.png" },
+    { "value": "Hasselblad", "label": "Hasselblad", "aliases": ["Hasselblad"], "modelPrefixes": [], "logo": ":/logos/camera/hasselblad-logo-1400-146.png" },
+    { "value": "Pentax", "label": "Pentax", "aliases": ["Pentax", "RICOH IMAGING"], "modelPrefixes": ["K-", "KP"], "logo": ":/logos/camera/Pentax_Logo-662-133.png" },
+    { "value": "Ricoh", "label": "Ricoh", "aliases": ["Ricoh"], "modelPrefixes": ["GR"], "logo": ":/logos/camera/ricoh-logo-1440-260.png" },
+    { "value": "Sigma", "label": "Sigma", "aliases": ["Sigma"], "modelPrefixes": ["fp", "dp"], "logo": ":/logos/camera/sigma-logo-2500-532.png" },
+    { "value": "Phase One", "label": "Phase One", "aliases": ["Phase One"], "modelPrefixes": ["IQ", "XF"], "logo": ":/logos/camera/Phase_One_logo-1280-177.png" },
+    { "value": "DJI", "label": "DJI", "aliases": ["DJI"], "modelPrefixes": [], "logo": ":/logos/camera/dji-logo-700-413.png" },
+    { "value": "GoPro", "label": "GoPro", "aliases": ["GoPro"], "modelPrefixes": [], "logo": ":/logos/camera/gopro-logo-1600-492.png" },
+    { "value": "Apple", "label": "Apple", "aliases": ["Apple", "iPhone"], "modelPrefixes": [], "logo": ":/logos/camera/others.png" },
+    { "value": "Huawei", "label": "Huawei", "aliases": ["HUAWEI", "Huawei"], "modelPrefixes": ["P50", "Mate", "HUAWEI"], "logo": ":/logos/camera/others.png" },
+    { "value": "Xiaomi", "label": "Xiaomi", "aliases": ["Xiaomi", "Redmi", "MI "], "modelPrefixes": [], "logo": ":/logos/camera/others.png" },
+    { "value": "Samsung", "label": "Samsung", "aliases": ["SAMSUNG", "Samsung"], "modelPrefixes": [], "logo": ":/logos/camera/others.png" },
+    { "value": "OPPO", "label": "OPPO", "aliases": ["OPPO"], "modelPrefixes": [], "logo": ":/logos/camera/others.png" },
+    { "value": "vivo", "label": "vivo", "aliases": ["vivo"], "modelPrefixes": [], "logo": ":/logos/camera/others.png" }
+  ],
+  "fallback": { "value": "Others", "label": "Others", "logo": ":/logos/camera/others.png" }
+}

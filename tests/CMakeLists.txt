@@ -42,4 +42,9 @@ add_test(NAME test_pipeline COMMAND test_pipeline)
 add_test(NAME test_golden COMMAND test_golden)
 add_test(NAME test_metadata COMMAND test_metadata)
 add_test(NAME test_exif COMMAND test_exif)
+# M2 收尾：BrandRegistry 品牌识别 + SensorRegistry 画幅倍率/等效焦距回退（R8）
+add_executable(test_brand test_brand.cpp)
+target_link_libraries(test_brand PRIVATE framext_core Qt6::Core Qt6::Test)
+
 add_test(NAME test_samples COMMAND test_samples)
+add_test(NAME test_brand COMMAND test_brand)
