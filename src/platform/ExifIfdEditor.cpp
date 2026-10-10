@@ -200,6 +200,50 @@ QByteArray ExifIfdEditor::setRational(const QByteArray &tiff, Ifd ifd, quint16 t
     return out;
 }
 
+QByteArray ExifIfdEditor::setAscii(const QByteArray &tiff, Ifd ifd,
+                                   quint16 tag, const QByteArray &value)
+{
+    ByteOrder bo;
+    quint32 ifd0 = 0;
+    if (!parseHeader(tiff, bo, ifd0))
+        return tiff;
+    const quint32 target = ifdOffsetFor(tiff, bo, ifd);
+    if (target == 0)
+        return tiff;
+    const int pos = findEntry(tiff, bo, target, tag);
+    if (pos < 0)
+        return tiff;
+    // 只覆写 ASCII(2)；数据区长度 count 不变（绝对 offset 保真红线）
+    if (bo.u16(tiff, pos + 2) != 2)
+        return tiff;
+    const quint32 count = bo.u32(tiff, pos + 4);
+    if (count == 0)
+        return tiff;
+
+    // ASCII count 含结尾 \0，可写正文字节上限 = count-1；
+    // 超长截断（同长度约束下无法扩写）
+    const int maxChars = int(count) - 1;
+    if (maxChars <= 0)
+        return tiff;
+
+    QByteArray out = tiff;
+    if (count <= 4) {
+        // 值内联在 entry 的 value 字段（≤4 字节）
+        for (quint32 i = 0; i < count; ++i)
+            out[pos + 8 + int(i)] = i < quint32(value.size())
+                                        ? value.at(int(i))
+                                        : '\0';
+    } else {
+        const quint32 valueOffset = bo.u32(tiff, pos + 8);
+        if (qint64(valueOffset) + qint64(count) > qint64(tiff.size()))
+            return tiff;
+        for (quint32 i = 0; i < count; ++i)
+            out[int(valueOffset) + int(i)] =
+                i < quint32(value.size()) ? value.at(int(i)) : '\0';
+    }
+    return out;
+}
+
 QByteArray ExifIfdEditor::stripGps(const QByteArray &tiff)
 {
     ByteOrder bo;

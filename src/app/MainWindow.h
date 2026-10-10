@@ -5,6 +5,8 @@
 #include <QSet>
 #include <QUuid>
 
+#include "export/ExportEngine.h"
+
 class QComboBox;
 class QSplitter;
 class QTimer;
@@ -13,6 +15,8 @@ class QToolButton;
 namespace fxt {
 enum class ApplyScope : int;   // ProjectController.h 定义（批量应用范围）
 class BasicInfoPanel;
+class ExportController;
+class ExportPanel;
 class ImportController;
 class PhotoListPanel;
 class PreviewCanvas;
@@ -73,6 +77,13 @@ private:
     void updateEmptyState();
     void confirmClear();
 
+    // —— 导出（M4，§3.3/§5.2/§5.3）——
+    void startExport(const ExportOptions &options);
+    void showExportFinished(const QList<ExportEngine::ItemResult> &results,
+                            bool canceled, qint64 elapsedMs);
+    void restoreExportPrefs();   // QSettings：导出预设（§4.8）
+    void saveExportPrefs(const ExportOptions &options);
+
     TitleBar *m_titleBar = nullptr;
     QSplitter *m_mainSplitter = nullptr;
     QSplitter *m_rootSplitter = nullptr;   // 上三栏+下列表（3.10 持久化）
@@ -80,6 +91,8 @@ private:
     // 控制器
     ProjectController *m_project = nullptr;
     ImportController *m_import = nullptr;
+    ExportController *m_export = nullptr;
+    int m_exportDone = 0;   // 进度缓存（取消确认「已导出 n 张将保留」）
 
     // 面板
     BasicInfoPanel *m_basicInfo = nullptr;
@@ -90,6 +103,7 @@ private:
     QComboBox *m_templateCombo = nullptr;
     QToolButton *m_compareButton = nullptr;
     QLabel *m_importSummary = nullptr;   // 左栏导入状态行
+    ExportPanel *m_exportPanel = nullptr;   // 导出表单（§3.3）
     QLabel *m_toast = nullptr;           // 批量操作结果提示（3s 自动消失）
     QTimer *m_toastTimer = nullptr;
     QString m_lastDir;                   // 最近导入目录（3.10 持久化）

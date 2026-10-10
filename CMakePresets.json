@@ -14,7 +14,8 @@
                 "CMAKE_PREFIX_PATH": "D:/MyApp/Qt/6.11.1/msvc2022_64",
                 "CMAKE_MAKE_PROGRAM": "D:/MyApp/Qt/Tools/Ninja/ninja.exe",
                 "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-                "VCPKG_TARGET_TRIPLET": "x64-windows"
+                "VCPKG_TARGET_TRIPLET": "x64-windows",
+                "VCPKG_INSTALLED_DIR": "D:/MyApp/vcpkg-installed/framext"
             }
         },
         {

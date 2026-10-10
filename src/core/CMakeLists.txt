@@ -17,12 +17,20 @@ add_library(framext_core STATIC
     render/RenderCacheManager.cpp
     render/BuiltinTemplates.cpp
     render/RenderPipeline.cpp
+    export/JpegEncoder.cpp
+    export/ExportEngine.cpp
 )
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui)
 # exiv2（GPL-2.0-or-later；项目 GPLv3+ 开源，许可兼容——02-技术设计 §2.3）
 find_package(exiv2 CONFIG REQUIRED)
-target_link_libraries(framext_core PUBLIC Qt6::Core Qt6::Gui exiv2lib)
+# libjpeg-turbo：M4 导出编码（q100+4:4:4 视觉无损预设；Qt JPEG 插件
+# 不暴露子采样——JpegEncoder.h 头注）
+find_package(libjpeg-turbo CONFIG REQUIRED)
+# framext_platform：M4 起 export 层直接复用字节级元数据搬运（§4.8
+# MetadataMuxer）——platform 位于 core 之下，正向依赖无环
+target_link_libraries(framext_core PUBLIC Qt6::Core Qt6::Gui exiv2lib
+    libjpeg-turbo::turbojpeg framext_platform)
 
 target_include_directories(framext_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

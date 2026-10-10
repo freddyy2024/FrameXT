@@ -106,10 +106,14 @@ QByteArray applyExportOverrides(const QByteArray &tiff, const ExportPolicy &poli
                                       ExifIfdEditor::TagPixelYDimension,
                                       quint16(policy.outputSize.height()));
     }
-    if (policy.softwareTag) {
-        // Software 为 ASCII 变长——仅当已存在时以同长度截断覆写（保真约束
-        // 下不新增变长 tag；变长写入在重建路径处理）
-        // v1：不覆写（保持源值），softwareTag 留给重建路径（挂账 M4）
+    if (policy.softwareTag && !policy.softwareValue.isEmpty()) {
+        // Software 为 ASCII 变长：同长度截断覆写（保真约束下不新增变长
+        // tag、不移动字节；源无 Software 时保持缺失——不重建 IFD）。
+        // M4 挂账实现：段搬运路径至此闭合。值由调用方传入（platform 层
+        // 不依赖 core 的 AppInfo，分层约束 §3）
+        out = ExifIfdEditor::setAscii(out, ExifIfdEditor::Ifd::Ifd0,
+                                      ExifIfdEditor::TagSoftware,
+                                      policy.softwareValue);
     }
     // DPI（clamp 到 [1,10000]，防恶意 RATIONAL 回绕写怪值）
     double dpi = 0;
@@ -287,6 +291,53 @@ QByteArray MetadataMuxer::composePng(const QByteArray &encodedPng,
             if (!tiff.isEmpty())
                 dpi = dpiFromTiff(tiff);
         }
+    } else {
+        dpi = policy.fixedDpi;
+    }
+    if (dpi <= 0)
+        dpi = 300;
+    dpi = qBound(1.0, dpi, 10000.0);
+    out = PngChunkIO::setChunk(out, PngChunkIO::makePhys(dpi));
+    return out;
+}
+
+QByteArray MetadataMuxer::composePngFromRaw(const QByteArray &encodedPng,
+                                            const QByteArray &exifTiff,
+                                            const QByteArray &iccProfile,
+                                            const ExportPolicy &policy)
+{
+    // 跨格式输出 PNG（JPEG/TIFF/WebP 源 → PNG）：无源 PNG 字节可搬运，
+    // 从调用方给的 raw 材料构建（composePngFromExif 的 PNG 对应物）。
+    QByteArray out = encodedPng;
+    if (!PngChunkIO::isValidPng(out))
+        return out;
+
+    // eXIf：raw TIFF 套导出语义覆写后写入（无 Exif 的源不写）
+    if (policy.keepExif && !exifTiff.isEmpty()) {
+        out = PngChunkIO::setChunk(
+            out, PngChunkIO::makeExif(applyExportOverrides(exifTiff, policy)));
+    }
+
+    // iCCP：裸 ICC → zlib 压缩写入（iCCP 数据区 = 名称+\0+压缩法+zlib 流；
+    // qCompress 输出 = 4 字节 BE 原长 + zlib 流，去头即标准 zlib）。
+    // 名称用短常量名（PNG 规范 1-79 字节，不含非法拉丁字符即可）
+    if (policy.keepIcc && !iccProfile.isEmpty()) {
+        QByteArray iccp;
+        iccp.append("ICC Profile");
+        iccp.append(char(0));
+        iccp.append(char(0));   // compression method: zlib
+        iccp.append(qCompress(iccProfile).mid(4));
+        PngChunkIO::Chunk c;
+        c.type = QByteArray("iCCP");
+        c.data = iccp;
+        out = PngChunkIO::setChunk(out, c);
+    }
+
+    // pHYs：Source 时 raw TIFF 优先、缺省 300（与 composePng 同语义）
+    double dpi = 0;
+    if (policy.dpiMode == ExportPolicy::DpiMode::Source) {
+        if (!exifTiff.isEmpty())
+            dpi = dpiFromTiff(exifTiff);
     } else {
         dpi = policy.fixedDpi;
     }

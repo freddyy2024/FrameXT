@@ -4,9 +4,11 @@
 #include "Theme.h"
 #include "TitleBar.h"
 #include "canvas/PreviewCanvas.h"
+#include "controllers/ExportController.h"
 #include "controllers/ImportController.h"
 #include "controllers/ProjectController.h"
 #include "panels/BasicInfoPanel.h"
+#include "panels/ExportPanel.h"
 #include "panels/PhotoListPanel.h"
 #include "panels/WatermarkPanel.h"
 
@@ -21,6 +23,7 @@
 #include <QEvent>
 #include <QFileDialog>
 #include <QFrame>
+#include <QDesktopServices>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
@@ -38,6 +41,7 @@
 #include <QSplitter>
 #include <QTimer>
 #include <QToolButton>
+#include <QUrl>
 #include <QVBoxLayout>
 #include <QWindow>
 
@@ -137,6 +141,7 @@ void MainWindow::buildUi()
     // —— 控制器（装配层：UI 只持指针，业务状态全在 controller）——
     m_project = new ProjectController(this);
     m_import = new ImportController(this);
+    m_export = new ExportController(this);
 
     auto *central = new QWidget(this);
     central->setObjectName("centralArea");
@@ -237,6 +242,26 @@ void MainWindow::buildUi()
                 }
                 Q_UNUSED(ms);
             });
+
+    // —— 导出流水线接线（§3.3 表单 → §5.2 进度/完成 → §5.3 冲突）——
+    connect(m_exportPanel, &ExportPanel::exportRequested, this,
+            [this](const ExportOptions &options) { startExport(options); });
+    connect(m_exportPanel, &ExportPanel::cancelRequested, this, [this] {
+        // §5.2：取消二次确认——「已导出 n 张将保留」
+        const auto choice = QMessageBox::question(
+            this, tr("取消导出"),
+            tr("已导出 %1 张将保留。确定取消剩余任务吗？").arg(m_exportDone),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if (choice == QMessageBox::Yes)
+            m_export->cancel();
+    });
+    connect(m_export, &ExportController::progressChanged, this,
+            [this](int done, int total, const QString &file) {
+                m_exportDone = done;
+                m_exportPanel->updateProgress(done, total, file);
+            });
+    connect(m_export, &ExportController::finished, this,
+            &MainWindow::showExportFinished);
 
     // —— 项目状态接线 ——
     connect(m_project, &ProjectController::currentChanged, this,
@@ -450,11 +475,9 @@ QWidget *MainWindow::buildLeftPanel()
     m_importSummary->setObjectName("panelCount");
     ioLayout->addWidget(m_importSummary);
 
-    auto *exportButton = new QPushButton(tr("执行导出"), ioContent);
-    exportButton->setObjectName("primaryButton");
-    exportButton->setEnabled(false);
-    exportButton->setToolTip(tr("导出功能将在 M4 接入"));
-    ioLayout->addWidget(exportButton);
+    // 导出表单（§3.3 完整五项；M4 起接线 ExportController）
+    m_exportPanel = new ExportPanel(ioContent);
+    ioLayout->addWidget(m_exportPanel);
 
     auto *aboutButton = new QPushButton(tr("关于 FrameXT"), ioContent);
     aboutButton->setObjectName("secondaryButton");
@@ -764,6 +787,8 @@ void MainWindow::restoreWindowState()
                                      .toByteArray();
     if (!rootSizes.isEmpty() && m_rootSplitter)
         m_rootSplitter->restoreState(rootSizes);
+
+    restoreExportPrefs();   // M4：导出预设（§4.8）
 }
 
 void MainWindow::saveWindowState()
@@ -823,6 +848,209 @@ void MainWindow::showAbout()
     about.exec();
 }
 
+// —— 导出（M4，§3.3/§5.2/§5.3）——
+
+namespace {
+// §5.3「每个文件询问」：逐文件三选（默认自动重命名）。
+// 自由函数而非成员——MainWindow.h 仅前向声明 ExportController，
+// 其嵌套枚举在头文件不可用。
+ExportController::ConflictChoice askConflictDialog(QWidget *parent,
+                                                   const QString &fileName)
+{
+    QMessageBox box(parent);
+    box.setWindowTitle(QObject::tr("文件名冲突"));
+    box.setText(QObject::tr("目标目录已有同名文件：\n%1").arg(fileName));
+    auto *rename = box.addButton(QObject::tr("自动重命名"),
+                                 QMessageBox::YesRole);
+    auto *overwrite = box.addButton(QObject::tr("覆盖"),
+                                    QMessageBox::DestructiveRole);
+    auto *skip = box.addButton(QObject::tr("跳过"), QMessageBox::NoRole);
+    Q_UNUSED(skip);
+    box.setDefaultButton(rename);
+    box.exec();
+    if (box.clickedButton() == overwrite)
+        return ExportController::ConflictChoice::Overwrite;
+    if (box.clickedButton() == skip)
+        return ExportController::ConflictChoice::Skip;
+    return ExportController::ConflictChoice::Rename;
+}
+} // namespace
+
+void MainWindow::startExport(const ExportOptions &options)
+{
+    if (m_export->busy())
+        return;
+    if (options.outputDir.isEmpty()) {
+        showToast(tr("请先选择导出目录"));
+        return;
+    }
+
+    // 快照全部可导项（导出不依赖预览历史，§4.2：模板+meta 即时解算）
+    QList<PhotoDocument> docs;
+    QList<FieldValueResolver> resolvers;
+    QList<QImage> logos;
+    for (const PhotoDocument &doc : m_project->documents()) {
+        if (doc.meta.pixelSize.isEmpty())
+            continue;   // 解码失败的导入残件不可导
+        docs.append(doc);
+        resolvers.append(m_project->fieldResolver(doc));
+        logos.append(m_project->resolveLogo(doc));
+    }
+    if (docs.isEmpty()) {
+        showToast(tr("没有可导出的照片"));
+        return;
+    }
+
+    saveExportPrefs(options);   // 导出预设持久化（§4.8）
+    m_exportDone = 0;
+    m_exportPanel->setExporting(true);
+    m_export->start(docs, resolvers, logos, options,
+                    [this](const QString &name) {
+                        return askConflictDialog(this, name);
+                    });
+}
+
+void MainWindow::showExportFinished(
+    const QList<ExportEngine::ItemResult> &results, bool canceled,
+    qint64 elapsedMs)
+{
+    m_exportPanel->setExporting(false);
+    if (results.isEmpty())
+        return;
+
+    int ok = 0, skipped = 0, failed = 0;
+    qint64 srcBytes = 0, outBytes = 0;
+    QString outputDir;
+    QStringList failures;
+    for (const auto &r : results) {
+        if (r.skipped)
+            ++skipped;
+        else if (r.ok) {
+            ++ok;
+            srcBytes += r.sourceBytes;
+            outBytes += r.outputBytes;
+            outputDir = QFileInfo(r.outputPath).absolutePath();
+        } else {
+            ++failed;
+            failures += QStringLiteral("%1（%2：%3)")
+                            .arg(QFileInfo(r.sourcePath).fileName(), r.stage,
+                                 r.error);
+        }
+    }
+
+    if (canceled) {
+        showToast(tr("已取消导出，已导出 %1 张保留").arg(ok));
+        return;
+    }
+
+    // §5.2 完成对话框：✓ + 统计 + 体积对比 + 打开文件夹
+    QDialog done(this);
+    done.setWindowTitle(tr("导出完成"));
+    done.setModal(true);
+    done.setFixedWidth(420);
+    auto *layout = new QVBoxLayout(&done);
+    layout->setContentsMargins(24, 20, 24, 16);
+    layout->setSpacing(8);
+
+    auto *head = new QLabel(tr("✓ 导出完成"), &done);
+    head->setObjectName("panelTitle");
+    head->setStyleSheet(QStringLiteral("color: %1")
+                            .arg(ok > 0 ? QStringLiteral("#2E9E5B")
+                                        : QStringLiteral("#D9534F")));
+    layout->addWidget(head);
+
+    QString stats = tr("成功 %1 · 跳过 %2 · 失败 %3")
+                        .arg(ok)
+                        .arg(skipped)
+                        .arg(failed);
+    if (ok > 0) {
+        stats += QLatin1Char('\n')
+                 + tr("体积：%1 → %2")
+                       .arg(srcBytes / 1048576.0, 0, 'f', 1)
+                       .arg(outBytes / 1048576.0, 0, 'f', 1)
+                 + tr(" MB") + tr("  ·  %1s")
+                       .arg(elapsedMs / 1000.0, 0, 'f', 1);
+    }
+    auto *statLabel = new QLabel(stats, &done);
+    statLabel->setWordWrap(true);
+    layout->addWidget(statLabel);
+
+    if (!failures.isEmpty()) {
+        auto *failLabel = new QLabel(failures.join(QStringLiteral("\n")), &done);
+        failLabel->setWordWrap(true);
+        failLabel->setStyleSheet(
+            QStringLiteral("color: %1").arg(QStringLiteral("#D9534F")));
+        layout->addWidget(failLabel);
+    }
+
+    layout->addSpacing(8);
+    auto *buttonRow = new QHBoxLayout();
+    if (ok > 0) {
+        auto *openFolder = new QPushButton(tr("打开所在文件夹"), &done);
+        openFolder->setObjectName("secondaryButton");
+        connect(openFolder, &QPushButton::clicked, &done, [outputDir] {
+            QDesktopServices::openUrl(QUrl::fromLocalFile(outputDir));
+        });
+        buttonRow->addWidget(openFolder);
+    }
+    buttonRow->addStretch();
+    auto *okButton = new QPushButton(tr("确定"), &done);
+    okButton->setObjectName("primaryButton");
+    connect(okButton, &QPushButton::clicked, &done, &QDialog::accept);
+    buttonRow->addWidget(okButton);
+    layout->addLayout(buttonRow);
+
+    done.exec();
+}
+
+void MainWindow::restoreExportPrefs()
+{
+    QSettings settings;
+    ExportOptions opt;
+    opt.outputDir = settings.value(
+        QStringLiteral("export/outputDir")).toString();
+    opt.naming = NamingMode(settings
+                                .value(QStringLiteral("export/naming"),
+                                       int(opt.naming))
+                                .toInt());
+    opt.conflict = ConflictPolicy(settings
+                                      .value(QStringLiteral("export/conflict"),
+                                             int(opt.conflict))
+                                      .toInt());
+    opt.preset = QualityPreset(settings
+                                   .value(QStringLiteral("export/quality"),
+                                          int(opt.preset))
+                                   .toInt());
+    opt.sizeMode = SizeMode(settings
+                                .value(QStringLiteral("export/size"),
+                                       int(opt.sizeMode))
+                                .toInt());
+    opt.customQuality = settings.value(QStringLiteral("export/customQuality"),
+                                       opt.customQuality)
+                            .toInt();
+    opt.customSubsampling =
+        JpegSubsampling(settings
+                            .value(QStringLiteral("export/customSubsampling"),
+                                   int(opt.customSubsampling))
+                            .toInt());
+    m_exportPanel->setOptions(opt);
+}
+
+void MainWindow::saveExportPrefs(const ExportOptions &options)
+{
+    QSettings settings;
+    settings.setValue(QStringLiteral("export/outputDir"), options.outputDir);
+    settings.setValue(QStringLiteral("export/naming"), int(options.naming));
+    settings.setValue(QStringLiteral("export/conflict"),
+                      int(options.conflict));
+    settings.setValue(QStringLiteral("export/quality"), int(options.preset));
+    settings.setValue(QStringLiteral("export/size"), int(options.sizeMode));
+    settings.setValue(QStringLiteral("export/customQuality"),
+                      options.customQuality);
+    settings.setValue(QStringLiteral("export/customSubsampling"),
+                      int(options.customSubsampling));
+}
+
 void MainWindow::updateEmptyState()
 {
     const bool empty = m_project->documents().isEmpty();
@@ -832,6 +1060,8 @@ void MainWindow::updateEmptyState()
     m_templateCombo->parentWidget()->setEnabled(!empty);
     if (m_watermarkPanel)
         m_watermarkPanel->setEnabled(!empty);
+    if (m_exportPanel)
+        m_exportPanel->setHasPhotos(!empty);
     m_importSummary->setText(empty
                                  ? tr("尚未导入照片")
                                  : tr("已选 %1 张")

@@ -1,5 +1,5 @@
 # 单元测试：core/platform 均为纯计算层（QtCore[/Gui] + Qt6::Test），无显示环境可跑。
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Test)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Concurrent Test)
 
 add_executable(test_appinfo test_appinfo.cpp)
 target_link_libraries(test_appinfo PRIVATE framext_core Qt6::Core Qt6::Test)
@@ -55,7 +55,17 @@ target_include_directories(test_projectcontroller PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/core)
 target_link_libraries(test_projectcontroller PRIVATE framext_core Qt6::Core Qt6::Gui Qt6::Test)
 
+# M4 导出与批量：编码/命名/往返/健壮性 + ExportController 冲突与取消
+# （app 层 ExportController 同 ProjectController 模式直接编入）
+add_executable(test_export test_export.cpp
+    ../src/app/controllers/ExportController.cpp)
+target_include_directories(test_export PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/app
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/core)
+target_link_libraries(test_export PRIVATE framext_core Qt6::Core Qt6::Gui Qt6::Concurrent Qt6::Test)
+
 add_test(NAME test_samples COMMAND test_samples)
 add_test(NAME test_brand COMMAND test_brand)
 add_test(NAME test_projectcontroller COMMAND test_projectcontroller)
+add_test(NAME test_export COMMAND test_export)
 

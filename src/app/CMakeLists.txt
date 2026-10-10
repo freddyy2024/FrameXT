@@ -8,7 +8,9 @@ qt_add_executable(framext WIN32
     Theme.h
     controllers/ProjectController.h controllers/ProjectController.cpp
     controllers/ImportController.h controllers/ImportController.cpp
+    controllers/ExportController.h controllers/ExportController.cpp
     panels/BasicInfoPanel.h panels/BasicInfoPanel.cpp
+    panels/ExportPanel.h panels/ExportPanel.cpp
     panels/PhotoListPanel.h panels/PhotoListPanel.cpp
     panels/WatermarkPanel.h panels/WatermarkPanel.cpp
     canvas/PreviewCanvas.h canvas/PreviewCanvas.cpp
