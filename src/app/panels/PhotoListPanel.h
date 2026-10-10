@@ -2,7 +2,6 @@
 
 #include <QHash>
 #include <QImage>
-#include <QSet>
 #include <QUuid>
 #include <QWidget>
 
@@ -14,8 +13,8 @@ class QPushButton;
 namespace fxt {
 
 // 照片列表（开发计划 3.3 / 04-UI §3.7）：
-// 横向缩略图条 + 多选（Ctrl/Shift/全选）+ 当前/选中双层视觉 + 右键菜单
-// + Del 移除 + [↶撤销][清空]。选中集（虚线角标）与当前（实线强调框）分层。
+// 横向缩略图条（单选）+ 右键菜单 + Del 移除 + [↶撤销][清空]。
+// 用户指令：列表只允许单选，不支持多选——选中态即当前态。
 class PhotoListPanel : public QWidget
 {
     Q_OBJECT
@@ -28,19 +27,14 @@ public:
     void removePhoto(const QUuid &id);
     void clearPhotos();
     void setCurrent(const QUuid &id);          // 不发 currentRequested
-    void setSelection(const QSet<QUuid> &ids); // 不发 selectionRequested
     void setUndoEnabled(bool enabled);
-    void selectAll();   // Ctrl+A 全选（发出 selectionRequested）
     QUuid idAt(int row) const;
 
 signals:
     void currentRequested(const QUuid &id);
-    void selectionRequested(const QSet<QUuid> &ids);
     void removeRequested(const QList<QUuid> &ids);
-    void removeUnselectedRequested();
     void clearRequested();
     void undoRequested();
-    void applyToSelectedRequested();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -48,7 +42,6 @@ protected:
 private:
     void updateSummary();
     void showContextMenu(const QPoint &pos);
-    QSet<QUuid> selectedIds() const;
 
     QLabel *m_summary = nullptr;
     QPushButton *m_undoButton = nullptr;

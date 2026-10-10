@@ -161,6 +161,13 @@ void MainWindow::buildUi()
 
     // 标题栏：三按钮 + 语言菜单
     m_titleBar = new TitleBar(central);
+    // 启动回填语言按钮文本（否则无论上次选了什么语言，按钮恒显示简体中文）
+    {
+        QSettings settings;
+        m_titleBar->updateLanguageButton(
+            settings.value(QStringLiteral("app/language"),
+                           QStringLiteral("zh-CN")).toString());
+    }
     connect(m_titleBar, &TitleBar::minimizeClicked, this, &QWidget::showMinimized);
     connect(m_titleBar, &TitleBar::maximizeClicked, this, [this] {
         isMaximized() ? showNormal() : showMaximized();
@@ -304,26 +311,11 @@ void MainWindow::buildUi()
     // —— 列表交互接线 ——
     connect(m_photoList, &PhotoListPanel::currentRequested, m_project,
             &ProjectController::setCurrentId);
-    connect(m_photoList, &PhotoListPanel::selectionRequested, this,
-            [this](const QSet<QUuid> &ids) { m_project->setSelection(ids); });
     connect(m_photoList, &PhotoListPanel::removeRequested, this,
             [this](const QList<QUuid> &ids) {
                 for (const QUuid &id : ids)
                     m_photoList->removePhoto(id);
                 m_project->removeDocuments(ids);
-                updateEmptyState();
-            });
-    connect(m_photoList, &PhotoListPanel::removeUnselectedRequested, this,
-            [this] {
-                QList<QUuid> doomed;
-                for (const auto &doc : m_project->documents()) {
-                    if (!m_project->selection().contains(doc.id)
-                        && doc.id != m_project->currentId())
-                        doomed.append(doc.id);
-                }
-                for (const QUuid &id : doomed)
-                    m_photoList->removePhoto(id);
-                m_project->removeDocuments(doomed);
                 updateEmptyState();
             });
     connect(m_photoList, &PhotoListPanel::clearRequested, this,
@@ -332,19 +324,13 @@ void MainWindow::buildUi()
         m_project->undo();
         refreshWatermarkPanel();   // 撤销可能回退元素树结构
     });
-    // 列表右键「应用当前设置到选中…」与右栏 applyRequested 同径（scope=Selected）
-    connect(m_photoList, &PhotoListPanel::applyToSelectedRequested, this,
-            [this] { runBatchApply(ApplyScope::Selected); });
 
-    // —— 全局快捷键（§7.2：撤销/全选/列表 Del）——
+    // —— 全局快捷键（§7.2：撤销；列表 Del 由面板 eventFilter 处理）——
     auto *undoShortcut = new QShortcut(QKeySequence::Undo, this);
     connect(undoShortcut, &QShortcut::activated, this, [this] {
         m_project->undo();
         refreshWatermarkPanel();
     });
-    auto *selectAllShortcut = new QShortcut(QKeySequence::SelectAll, this);
-    connect(selectAllShortcut, &QShortcut::activated, m_photoList,
-            &PhotoListPanel::selectAll);
 
     // —— 画布交互接线 ——
     connect(m_canvas, &PreviewCanvas::importRequested, this, [this] {

@@ -24,6 +24,8 @@ public:
 
     // 窗口最大化状态变化时刷新「最大化 / 向下还原」图标
     void updateMaximizeButton(bool maximized);
+    // 启动回填：按持久化语言 key（"zh-CN"/"zh-TW"/"en"）刷新按钮文本
+    void updateLanguageButton(const QString &code);
     // 纯看图态同步（👁 按钮选中态刷新，避免按住对比原图时的状态漂移）
     void updateWatermarkEyeButton(bool hidden);
 

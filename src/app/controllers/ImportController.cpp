@@ -33,8 +33,9 @@ ImportItem importOne(const QString &path)
     }
     item.doc.meta.pixelSize = decoded.originalSize;
     item.doc.meta.format = decoded.format;
+    // 缩略图以长边等比缩放（KeepAspectRatio 不裁剪），列表项内居中完整显示
     item.thumbnail = decoded.image.scaled(kThumbEdge, kThumbEdge,
-                                          Qt::KeepAspectRatioByExpanding,
+                                          Qt::KeepAspectRatio,
                                           Qt::SmoothTransformation);
 
     // 2) Exif 解析（M2 引擎）→ 展示值集 + 品牌规范化

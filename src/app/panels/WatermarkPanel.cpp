@@ -91,8 +91,8 @@ WatermarkPanel::WatermarkPanel(QWidget *parent)
     applyLayout->setSpacing(6);
     applyLayout->addWidget(new QLabel(tr("应用到"), applyRow));
     auto *scopeCombo = new QComboBox(applyRow);
+    // 照片列表已单选（用户指令），「选中的照片」与「当前照片」重合，不提供
     scopeCombo->addItem(tr("当前照片"), int(ApplyScope::Current));
-    scopeCombo->addItem(tr("选中的照片"), int(ApplyScope::Selected));
     scopeCombo->addItem(tr("全部照片"), int(ApplyScope::All));
     applyLayout->addWidget(scopeCombo, 1);
     auto *applyButton = new QPushButton(tr("应用…"), applyRow);

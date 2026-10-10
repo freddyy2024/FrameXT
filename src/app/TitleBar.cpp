@@ -24,6 +24,14 @@ constexpr char16_t kGlyphRestore  = 0xE923;
 constexpr char16_t kGlyphClose    = 0xE8BB;
 constexpr char16_t kGlyphEye      = 0xE7B3;   // RedEye/View 图标
 
+// 语言菜单项（3.9）：按钮与菜单统一用语言自称（endonym），不参与翻译——
+// 否则非中文环境下按钮永远显示「中文」/「Chinese」，无法辨认当前语言
+const QList<QPair<QString, QString>> kLanguages = {
+    { QStringLiteral("简体中文"), QStringLiteral("zh-CN") },
+    { QStringLiteral("繁體中文"), QStringLiteral("zh-TW") },
+    { QStringLiteral("English"), QStringLiteral("en") },
+};
+
 QFont captionGlyphFont()
 {
     QFont font;
@@ -61,21 +69,17 @@ TitleBar::TitleBar(QWidget *parent)
 
     layout->addStretch();
 
-    // 语言切换：M3 接入 i18n 运行时切换，当前先展示语言菜单
+    // 语言切换（3.9）：选择后写持久化 key、重启生效；按钮文本由
+    // updateLanguageButton 按已保存的语言回填（构造默认简体中文）
     m_languageButton = new QToolButton(this);
     m_languageButton->setObjectName(QStringLiteral("languageButton"));
-    m_languageButton->setText(tr("中文") + QStringLiteral(" ▾"));
     m_languageButton->setToolTip(tr("切换界面语言"));
     m_languageButton->setCursor(Qt::PointingHandCursor);
     m_languageButton->setFocusPolicy(Qt::NoFocus);
+    updateLanguageButton(QStringLiteral("zh-CN"));
 
     auto *languageMenu = new QMenu(m_languageButton);
-    const QList<QPair<QString, QString>> languages = {
-        { QStringLiteral("简体中文"), QStringLiteral("zh-CN") },
-        { QStringLiteral("繁體中文"), QStringLiteral("zh-TW") },
-        { QStringLiteral("English"), QStringLiteral("en") },
-    };
-    for (const auto &[name, code] : languages) {
+    for (const auto &[name, code] : kLanguages) {
         QAction *action = languageMenu->addAction(name);
         action->setData(code);
     }
@@ -118,6 +122,18 @@ bool TitleBar::isInteractiveAt(const QPoint &pos) const
         || m_minButton->geometry().contains(pos)
         || m_maxButton->geometry().contains(pos)
         || m_closeButton->geometry().contains(pos);
+}
+
+// 启动回填：按持久化的语言 key 显示对应语言自称（未知 code 回落简体中文）
+void TitleBar::updateLanguageButton(const QString &code)
+{
+    for (const auto &[name, langCode] : kLanguages) {
+        if (langCode == code) {
+            m_languageButton->setText(name + QStringLiteral(" ▾"));
+            return;
+        }
+    }
+    m_languageButton->setText(QStringLiteral("简体中文 ▾"));
 }
 
 void TitleBar::updateWatermarkEyeButton(bool hidden)
