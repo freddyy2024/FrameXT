@@ -30,6 +30,10 @@ target_link_libraries(test_metadata PRIVATE framext_platform Qt6::Core Qt6::Gui 
 add_executable(test_exif test_exif.cpp)
 target_link_libraries(test_exif PRIVATE framext_core Qt6::Core Qt6::Gui Qt6::Test)
 
+# M2.5 往返测试集（真实样张，FXT_SAMPLE_DIR 环境变量指定，缺失时 SKIP）
+add_executable(test_samples test_samples.cpp)
+target_link_libraries(test_samples PRIVATE framext_core framext_platform Qt6::Core Qt6::Gui Qt6::Test)
+
 add_test(NAME test_appinfo COMMAND test_appinfo)
 add_test(NAME test_model COMMAND test_model)
 add_test(NAME test_render COMMAND test_render)
@@ -38,3 +42,4 @@ add_test(NAME test_pipeline COMMAND test_pipeline)
 add_test(NAME test_golden COMMAND test_golden)
 add_test(NAME test_metadata COMMAND test_metadata)
 add_test(NAME test_exif COMMAND test_exif)
+add_test(NAME test_samples COMMAND test_samples)
