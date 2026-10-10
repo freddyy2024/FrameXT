@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
 
     app.setWindowIcon(QIcon(QStringLiteral(":/icons/logo-1024px.png")));
 
-    MainWindow win;
+    fxt::MainWindow win;
     win.show();
 
     return app.exec();

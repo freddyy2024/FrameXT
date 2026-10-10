@@ -1,20 +1,32 @@
 #include "MainWindow.h"
 
+#include "Theme.h"
 #include "TitleBar.h"
+#include "canvas/PreviewCanvas.h"
+#include "controllers/ImportController.h"
+#include "controllers/ProjectController.h"
+#include "panels/BasicInfoPanel.h"
+#include "panels/PhotoListPanel.h"
 
 #include <QAbstractItemView>
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDragEnterEvent>
+#include <QDropEvent>
 #include <QEvent>
+#include <QFileDialog>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
+#include <QMessageBox>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QScreen>
+#include <QSlider>
 #include <QSplitter>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -82,6 +94,8 @@ QLabel *createHintLabel(const QString &text, const char *objectName = "emptyHint
 
 } // namespace
 
+namespace fxt {
+
 MainWindow::MainWindow()
 {
     // Qt 6.11 无边框定式（0xC000041D 二分实测结论）：
@@ -111,6 +125,10 @@ MainWindow::MainWindow()
 
 void MainWindow::buildUi()
 {
+    // —— 控制器（装配层：UI 只持指针，业务状态全在 controller）——
+    m_project = new ProjectController(this);
+    m_import = new ImportController(this);
+
     auto *central = new QWidget(this);
     central->setObjectName("centralArea");
     setCentralWidget(central);
@@ -131,24 +149,24 @@ void MainWindow::buildUi()
     rootLayout->addWidget(m_titleBar);
 
     // 中部三栏（QSplitter，可拖动调宽）
-    auto *mainSplitter = new QSplitter(Qt::Horizontal, central);
-    mainSplitter->setObjectName("mainSplitter");
-    mainSplitter->setChildrenCollapsible(false);
-    mainSplitter->setHandleWidth(kPanelSpacing);
-    mainSplitter->addWidget(buildLeftPanel());
-    mainSplitter->addWidget(buildCenterPanel());
-    mainSplitter->addWidget(buildRightPanel());
-    mainSplitter->setStretchFactor(0, 0);
-    mainSplitter->setStretchFactor(1, 1);
-    mainSplitter->setStretchFactor(2, 0);
-    mainSplitter->setSizes({ 260, 714, 288 });
+    m_mainSplitter = new QSplitter(Qt::Horizontal, central);
+    m_mainSplitter->setObjectName("mainSplitter");
+    m_mainSplitter->setChildrenCollapsible(false);
+    m_mainSplitter->setHandleWidth(kPanelSpacing);
+    m_mainSplitter->addWidget(buildLeftPanel());
+    m_mainSplitter->addWidget(buildCenterPanel());
+    m_mainSplitter->addWidget(buildRightPanel());
+    m_mainSplitter->setStretchFactor(0, 0);
+    m_mainSplitter->setStretchFactor(1, 1);
+    m_mainSplitter->setStretchFactor(2, 0);
+    m_mainSplitter->setSizes({ 260, 714, 288 });
 
     // 上：三栏工作区；下：照片列表
     auto *rootSplitter = new QSplitter(Qt::Vertical, central);
     rootSplitter->setObjectName("rootSplitter");
     rootSplitter->setChildrenCollapsible(false);
     rootSplitter->setHandleWidth(kPanelSpacing);
-    rootSplitter->addWidget(mainSplitter);
+    rootSplitter->addWidget(m_mainSplitter);
     rootSplitter->addWidget(buildBottomPanel());
     rootSplitter->setStretchFactor(0, 1);
     rootSplitter->setStretchFactor(1, 0);
@@ -156,6 +174,82 @@ void MainWindow::buildUi()
 
     rootLayout->addWidget(rootSplitter, 1);
 
+    // —— 导入流水线接线 ——
+    setAcceptDrops(true);
+    connect(m_import, &ImportController::documentReady, this,
+            [this](const PhotoDocument &doc, const QImage &thumbnail) {
+                m_project->appendDocument(doc);
+                const QString name = QFileInfo(doc.sourcePath).fileName();
+                m_photoList->addPhoto(doc.id, name, thumbnail);
+            });
+    connect(m_import, &ImportController::importFinished, this,
+            [this](int ok, const QList<ImportFailure> &failures, qint64 ms) {
+                updateEmptyState();
+                if (ok > 0)
+                    refreshBasicInfo();
+                if (!failures.isEmpty()) {
+                    QStringList reasons;
+                    for (const ImportFailure &f : failures)
+                        reasons += QStringLiteral("%1（%2）")
+                                       .arg(QFileInfo(f.path).fileName(),
+                                            f.reason);
+                    QMessageBox::warning(this, tr("导入完成"),
+                                         tr("成功 %1 张 · 失败 %2 张：\n%3")
+                                             .arg(ok)
+                                             .arg(failures.size())
+                                             .arg(reasons.join(QStringLiteral("\n"))));
+                }
+                Q_UNUSED(ms);
+            });
+
+    // —— 项目状态接线 ——
+    connect(m_project, &ProjectController::currentChanged, this,
+            [this](const QUuid &id) {
+                m_photoList->setCurrent(id);
+                refreshBasicInfo();
+            });
+    connect(m_project, &ProjectController::previewUpdated, this,
+            [this](const QImage &image) { m_canvas->setPreview(image); });
+    connect(m_project, &ProjectController::undoAvailabilityChanged, this,
+            [this](bool avail) { m_photoList->setUndoEnabled(avail); });
+    connect(m_project, &ProjectController::documentChanged, this,
+            [this](const QUuid &) { refreshBasicInfo(); });
+
+    // —— 列表交互接线 ——
+    connect(m_photoList, &PhotoListPanel::currentRequested, m_project,
+            &ProjectController::setCurrentId);
+    connect(m_photoList, &PhotoListPanel::selectionRequested, this,
+            [this](const QSet<QUuid> &ids) { m_project->setSelection(ids); });
+    connect(m_photoList, &PhotoListPanel::removeRequested, this,
+            [this](const QList<QUuid> &ids) {
+                for (const QUuid &id : ids)
+                    m_photoList->removePhoto(id);
+                m_project->removeDocuments(ids);
+                updateEmptyState();
+            });
+    connect(m_photoList, &PhotoListPanel::removeUnselectedRequested, this,
+            [this] {
+                QList<QUuid> doomed;
+                for (const auto &doc : m_project->documents()) {
+                    if (!m_project->selection().contains(doc.id)
+                        && doc.id != m_project->currentId())
+                        doomed.append(doc.id);
+                }
+                for (const QUuid &id : doomed)
+                    m_photoList->removePhoto(id);
+                m_project->removeDocuments(doomed);
+                updateEmptyState();
+            });
+    connect(m_photoList, &PhotoListPanel::clearRequested, this,
+            &MainWindow::confirmClear);
+    connect(m_photoList, &PhotoListPanel::undoRequested, m_project,
+            &ProjectController::undo);
+
+    // —— 画布交互接线 ——
+    connect(m_canvas, &PreviewCanvas::compareOriginalPressed, m_project,
+            &ProjectController::setWatermarkHidden);
+
+    updateEmptyState();
     setWindowTitle("FrameXT");
 }
 
@@ -167,29 +261,37 @@ QWidget *MainWindow::buildLeftPanel()
     layout->setContentsMargins(kPanelSpacing, kPanelSpacing, 0, 0);
     layout->setSpacing(kPanelSpacing);
 
-    // 基础属性卡（M3 接入真实字段。注意：空态禁用只能作用于控件，
-    // 不能 setEnabled(false) 到布局——布局被禁用后会停止排列子项，
-    // 提示文字将停留在左上角，M0 复现过该问题）
-    auto *basicContent = new QWidget;
-    basicContent->setObjectName("cardBody");
-    auto *basicLayout = new QVBoxLayout(basicContent);
-    basicLayout->setContentsMargins(0, 0, 0, 0);
-    basicLayout->addWidget(createHintLabel(
-        tr("导入照片后，这里显示拍摄参数\n（机型 / 镜头 / 光圈快门 / 焦距 等）")));
-    layout->addWidget(createCard(tr("基础属性"), QString(), basicContent), 1);
+    // 基础属性（3.6 上半）：只读字段表 + 复制
+    m_basicInfo = new BasicInfoPanel(panel);
+    layout->addWidget(m_basicInfo, 1);
 
-    // 导入导出卡
+    // 导入导出卡（§3.3；导出执行 M4 接线，先就位表单）
     auto *ioContent = new QWidget;
     ioContent->setObjectName("cardBody");
     auto *ioLayout = new QVBoxLayout(ioContent);
     ioLayout->setContentsMargins(12, 10, 12, 12);
-    ioLayout->setSpacing(8);
+    ioLayout->setSpacing(6);
+
     auto *importButton = new QPushButton(tr("导入照片…"), ioContent);
     importButton->setObjectName("primaryButton");
+    connect(importButton, &QPushButton::clicked, this, [this] {
+        const auto files = QFileDialog::getOpenFileNames(
+            this, tr("选择照片"), QString(),
+            tr("照片文件 (%1)").arg(QStringLiteral("*.jpg *.jpeg *.png *.webp *.tif *.tiff")));
+        if (!files.isEmpty())
+            importPaths(files);
+    });
     ioLayout->addWidget(importButton);
-    ioLayout->addWidget(new QPushButton(tr("导出"), ioContent));
-    ioLayout->addStretch();
-    ioContent->setEnabled(false);
+
+    m_importSummary = new QLabel(tr("尚未导入照片"), ioContent);
+    m_importSummary->setObjectName("panelCount");
+    ioLayout->addWidget(m_importSummary);
+
+    auto *exportButton = new QPushButton(tr("执行导出"), ioContent);
+    exportButton->setObjectName("primaryButton");
+    exportButton->setEnabled(false);
+    exportButton->setToolTip(tr("导出功能将在 M4 接入"));
+    ioLayout->addWidget(exportButton);
     layout->addWidget(createCard(tr("导入导出"), QString(), ioContent));
 
     return panel;
@@ -203,28 +305,71 @@ QWidget *MainWindow::buildCenterPanel()
     // 中栏四边不设贴边距：与左右栏的间距由 splitter 手柄(8px)负责，
     // 仅保留顶部间距对齐左右栏（间距体系见 04-UI设计.md 8px 网格）
     layout->setContentsMargins(0, kPanelSpacing, 0, 0);
+    layout->setSpacing(0);
 
-    // 预览画布（M1/M3 接入 QGraphicsView；当前为空态引导）
-    auto *canvas = new QFrame(panel);
-    canvas->setObjectName("previewCanvas");
-    auto *canvasLayout = new QVBoxLayout(canvas);
-    canvasLayout->setContentsMargins(24, 0, 24, 0);
+    m_canvas = new PreviewCanvas(panel);
+    layout->addWidget(m_canvas, 1);
 
-    auto *mainHint = new QLabel(tr("将照片拖入此处开始"), canvas);
-    mainHint->setObjectName("emptyHintPrimary");
-    mainHint->setAlignment(Qt::AlignCenter);
-    QFont hintFont = mainHint->font();
-    hintFont.setPixelSize(15);
-    hintFont.setWeight(QFont::DemiBold);
-    mainHint->setFont(hintFont);
+    // 底部工具条（高 36：适配 | 100% | 缩放滑杆 | 对比原图）
+    auto *toolbar = new QWidget(panel);
+    toolbar->setObjectName("previewToolbar");
+    toolbar->setFixedHeight(Theme::kToolstripHeight);
+    auto *tb = new QHBoxLayout(toolbar);
+    tb->setContentsMargins(12, 4, 12, 4);
+    tb->setSpacing(8);
 
-    canvasLayout->addStretch();
-    canvasLayout->addWidget(mainHint);
-    canvasLayout->addWidget(createHintLabel(
-        tr("或点击左侧「导入照片」 · 支持 JPG / PNG / WebP")));
-    canvasLayout->addStretch();
+    auto *fitButton = new QPushButton(tr("适配"), toolbar);
+    fitButton->setObjectName("secondaryButton");
+    connect(fitButton, &QPushButton::clicked, m_canvas,
+            &PreviewCanvas::fitToWindow);
+    tb->addWidget(fitButton);
 
-    layout->addWidget(canvas, 1);
+    auto *zoom100Button = new QPushButton("100%", toolbar);
+    zoom100Button->setObjectName("secondaryButton");
+    connect(zoom100Button, &QPushButton::clicked, m_canvas,
+            &PreviewCanvas::setZoom100);
+    tb->addWidget(zoom100Button);
+
+    auto *zoomSlider = new QSlider(Qt::Horizontal, toolbar);
+    zoomSlider->setRange(10, 800);   // 0.1–8.0×
+    zoomSlider->setValue(100);
+    zoomSlider->setMaximumWidth(140);
+    connect(zoomSlider, &QSlider::valueChanged, m_canvas, [this](int v) {
+        if (qFuzzyCompare(m_canvas->zoom(), qreal(v) / 100.0))
+            return;
+        m_canvas->setZoom(qreal(v) / 100.0);
+    });
+    connect(m_canvas, &PreviewCanvas::zoomChanged, zoomSlider, [zoomSlider](qreal z) {
+        QSignalBlocker blocker(zoomSlider);
+        zoomSlider->setValue(int(z * 100));
+    });
+    tb->addWidget(zoomSlider);
+
+    auto *percent = new QLabel("100%", toolbar);
+    percent->setObjectName("panelCount");
+    connect(m_canvas, &PreviewCanvas::zoomChanged, percent,
+            [percent](qreal z) {
+                percent->setText(QString::number(int(z * 100)) + QStringLiteral("%"));
+            });
+    tb->addWidget(percent);
+
+    m_compareButton = new QToolButton(toolbar);
+    m_compareButton->setText(tr("对比原图"));
+    m_compareButton->setObjectName("secondaryButton");
+    m_compareButton->setToolTip(tr("按住临时隐藏边框水印查看原片"));
+    m_compareButton->setCheckable(false);
+    // 按住临时隐藏水印（§9-D）；画布内左键按下走同一控制器状态
+    connect(m_compareButton, &QToolButton::pressed, m_project,
+            [this] { m_project->setWatermarkHidden(true); });
+    connect(m_compareButton, &QToolButton::released, m_project,
+            [this] { m_project->setWatermarkHidden(false); });
+    tb->addWidget(m_compareButton);
+    tb->addStretch();
+    m_canvasHint = new QLabel(tr("空格拖拽平移 · 滚轮缩放"), toolbar);
+    m_canvasHint->setObjectName("panelCount");
+    tb->addWidget(m_canvasHint);
+    layout->addWidget(toolbar);
+
     return panel;
 }
 
@@ -236,23 +381,27 @@ QWidget *MainWindow::buildRightPanel()
     layout->setContentsMargins(0, kPanelSpacing, kPanelSpacing, 0);
     layout->setSpacing(kPanelSpacing);
 
-    // 模板卡（M3 接入参数控件、M5 模板参数化；空态时控件级禁用）
+    // 模板卡（§3.5 面板一；参数滑杆/模板管理器 M5 接入）
     auto *templateContent = new QWidget;
     templateContent->setObjectName("cardBody");
     auto *templateLayout = new QVBoxLayout(templateContent);
     templateLayout->setContentsMargins(12, 10, 12, 12);
     templateLayout->setSpacing(8);
-    auto *templateCombo = new QComboBox(templateContent);
-    templateCombo->addItems({ tr("底部边框"), tr("环绕边框"), tr("高斯模糊") });
-    templateLayout->addWidget(templateCombo);
-    auto *templateHint = createHintLabel(tr("选择照片后可调整模板参数"));
-    templateHint->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    templateLayout->addWidget(templateHint);
+    m_templateCombo = new QComboBox(templateContent);
+    m_templateCombo->addItem(tr("底部边框"), QStringLiteral("bottom"));
+    m_templateCombo->addItem(tr("环绕边框"), QStringLiteral("around"));
+    m_templateCombo->addItem(tr("高斯模糊"), QStringLiteral("blur"));
+    connect(m_templateCombo, &QComboBox::activated, this, [this](int index) {
+        const QString id = m_templateCombo->itemData(index).toString();
+        if (!id.isEmpty())
+            m_project->setTemplateId(id);
+    });
+    templateLayout->addWidget(m_templateCombo);
     templateLayout->addStretch();
     templateContent->setEnabled(false);
     layout->addWidget(createCard(tr("模板"), QString(), templateContent));
 
-    // 水印内容卡：开关行列表（M3 落地，回应 R1）
+    // 水印内容卡：开关行列表（3.5 第二批落地完整交互）
     auto *watermarkContent = new QWidget;
     watermarkContent->setObjectName("cardBody");
     auto *watermarkLayout = new QVBoxLayout(watermarkContent);
@@ -277,20 +426,89 @@ QWidget *MainWindow::buildBottomPanel()
     listArea->setObjectName("cardBody");
     auto *listLayout = new QVBoxLayout(listArea);
     listLayout->setContentsMargins(0, 0, 0, 0);
+    m_photoList = new PhotoListPanel(listArea);
+    listLayout->addWidget(m_photoList);
 
-    auto *photoList = new QListWidget(listArea);
-    photoList->setObjectName("photoList");
-    photoList->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    photoList->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-
-    // 空态提示与列表互斥；M3 随照片数量切换
-    photoList->setVisible(false);
-    listLayout->addWidget(photoList);
-    listLayout->addWidget(createHintLabel(
-        tr("尚未导入照片 · 拖入照片或点击「导入照片」开始")));
-
-    layout->addWidget(createCard(tr("照片列表"), tr("0 张"), listArea));
+    layout->addWidget(createCard(tr("照片列表"), QString(), listArea));
     return panel;
+}
+
+void MainWindow::importPaths(const QStringList &paths)
+{
+    if (paths.isEmpty())
+        return;
+    if (m_import->busy())
+        return;
+    m_import->importFiles(paths);
+}
+
+void MainWindow::refreshBasicInfo()
+{
+    const PhotoDocument *doc = m_project->current();
+    if (!doc) {
+        m_basicInfo->clearFields();
+        m_importSummary->setText(tr("尚未导入照片"));
+        return;
+    }
+    // 覆盖层优先（与渲染 resolver 同语义）
+    QHash<QString, QString> fields = doc->meta.exif.fields;
+    for (auto it = doc->overrides.values.cbegin();
+         it != doc->overrides.values.cend(); ++it)
+        fields.insert(it.key(), it.value());
+    m_basicInfo->setFields(fields, true);
+    m_importSummary->setText(tr("已选 %1 张").arg(m_project->documents().size()));
+}
+
+void MainWindow::updateEmptyState()
+{
+    const bool empty = m_project->documents().isEmpty();
+    m_canvas->setEmpty(empty);
+    // 空态禁用只能作用于控件，不能作用于布局（M0 复现：布局被禁用后
+    // 停止排列子项，提示文字停留左上角）
+    m_templateCombo->parentWidget()->setEnabled(!empty);
+    m_importSummary->setText(empty
+                                 ? tr("尚未导入照片")
+                                 : tr("已选 %1 张")
+                                       .arg(m_project->documents().size()));
+}
+
+void MainWindow::confirmClear()
+{
+    if (m_project->documents().isEmpty())
+        return;
+    const auto answer = QMessageBox::question(
+        this, tr("清空列表"),
+        tr("将移除全部 %1 张照片（不删除文件）。继续？")
+            .arg(m_project->documents().size()));
+    if (answer != QMessageBox::Yes)
+        return;
+    m_photoList->clearPhotos();
+    m_project->clearDocuments();
+    m_basicInfo->clearFields();
+    updateEmptyState();
+}
+
+void MainWindow::dragEnterEvent(QDragEnterEvent *event)
+{
+    if (event->mimeData()->hasUrls()) {
+        event->acceptProposedAction();
+        return;
+    }
+    event->ignore();
+}
+
+void MainWindow::dropEvent(QDropEvent *event)
+{
+    if (!event->mimeData()->hasUrls())
+        return;
+    QStringList paths;
+    for (const QUrl &url : event->mimeData()->urls()) {
+        if (url.isLocalFile())
+            paths.append(url.toLocalFile());
+    }
+    if (!paths.isEmpty())
+        importPaths(paths);
+    event->acceptProposedAction();
 }
 
 void MainWindow::changeEvent(QEvent *event)
@@ -468,3 +686,5 @@ void MainWindow::clearResizeCursor()
 }
 
 #endif // Q_OS_WIN
+
+} // namespace fxt

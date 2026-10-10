@@ -34,6 +34,8 @@ QFont captionGlyphFont()
 
 } // namespace
 
+namespace fxt {
+
 TitleBar::TitleBar(QWidget *parent)
     : QWidget(parent)
 {
@@ -205,3 +207,5 @@ QToolButton *TitleBar::createCaptionButton(const QString &objectName,
     button->setAutoRaise(true);
     return button;
 }
+
+} // namespace fxt

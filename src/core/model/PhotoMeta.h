@@ -1,19 +1,21 @@
 #pragma once
 
 #include <QByteArray>
+#include <QHash>
 #include <QSize>
 #include <QSizeF>
 #include <QString>
 
 namespace fxt {
 
-// Exif 结构化数据：M2 由 exiv2 + FieldRegistry 填充（02-技术设计 §4.5）；
-// M1 先占位品牌基础字段（BrandRegistry 匹配依赖）。
+// Exif 结构化数据：导入时由 exiv2 + FieldRegistry 填充（02-技术设计 §4.5）。
+// fields = FieldRegistry::resolveDisplay 的展示值集（fieldKey → 文本），
+// 即"无覆盖层时的最终显示"；UI 覆盖层（ExifOverrides）在渲染装配时优先。
 struct ExifData
 {
-    QString make;   // 品牌，如 "Canon"
-    QString model;  // 机型，如 "Canon EOS R5"
-    // TODO(M2): RawExif 全量 tag / GPS / MakerNote 品牌特色字段
+    QString make;   // 品牌（BrandRegistry 匹配值，如 "Canon"）
+    QString model;  // 机型原文，如 "NIKON Z 6_2"
+    QHash<QString, QString> fields;  // fieldKey → 展示值（iso→"ISO 140" 等）
 
     bool isEmpty() const { return make.isEmpty() && model.isEmpty(); }
     bool operator==(const ExifData &) const = default;
