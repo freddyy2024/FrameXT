@@ -48,6 +48,9 @@ signals:
     void removeCustomTextRequested(const QUuid &id);
     void applyRequested(ApplyScope scope);
 
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
     void rebuildRows();
     void buildStyleArea();
@@ -70,6 +73,8 @@ private:
     QSlider *m_opacitySlider = nullptr;
     QPushButton *m_resetPosButton = nullptr;
     bool m_updatingStyle = false;     // 程序性填充不回发 styleChanged
+
+    QHash<QUuid, QWidget *> m_rowByElement;   // 行选中高亮（§3.5）
 };
 
 } // namespace fxt

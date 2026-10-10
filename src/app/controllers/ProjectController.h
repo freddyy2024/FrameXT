@@ -21,6 +21,7 @@ struct UndoSnapshot
     QUuid photoId;
     TemplateState state;        // 修改前快照
     ExifOverrides overrides;
+    QUuid groupId;              // 批量操作组（一次 undo 整组回退；空 = 单步）
 };
 
 // 项目状态中枢（02-技术设计 §4.1/§4.2 controller 层）：
@@ -40,6 +41,7 @@ public:
     const QList<PhotoDocument> &documents() const { return m_documents; }
     PhotoDocument *document(const QUuid &id);
     PhotoDocument *current();
+    const PhotoDocument *current() const;
     QUuid currentId() const { return m_currentId; }
     void setCurrentId(const QUuid &id);
     int indexOf(const QUuid &id) const;
@@ -81,8 +83,11 @@ public:
     bool canUndo() const { return !m_undoStack.isEmpty(); }
 
     // —— 批量应用（§5.5：当前模板+水印状态 → 范围；可撤销）——
-    // keepManualPositions：保留各照片 hasCustomPosition 的手动定位
+    // keepManualPositions：保留各照片 hasCustomPosition 的手动定位；
+    // 一次批量 = 一个撤销组，undo 一步整组回退
     int applyCurrentTo(ApplyScope scope, bool keepManualPositions);
+    // 确认框如实展示作用面（跳过源照片后的净数量）
+    int applyTargetCount(ApplyScope scope) const;
 
     // —— 渲染装配 ——
     RenderRequest renderRequest(const PhotoDocument &doc) const;
@@ -118,8 +123,10 @@ signals:
 
 private:
     void pushUndo(const QUuid &photoId);
+    void pushUndo(const QUuid &photoId, const QUuid &groupId);
     void scheduleRender();
     QList<QUuid> scopeTargets(ApplyScope scope) const;
+    CanvasPlan canvasPlanFor(const PhotoDocument &doc) const;   // 与渲染 S2 同源
 
     QList<PhotoDocument> m_documents;
     QUuid m_currentId;
@@ -131,6 +138,7 @@ private:
     QTimer m_renderDebounce;       // 250ms 防抖（§4.2）
     QFutureWatcher<RenderResult> *m_renderWatcher = nullptr;
     quint64 m_renderGeneration = 0;  // 过期渲染结果丢弃
+    quint64 m_watcherGeneration = 0; // watcher 当前所挂请求的代号
 };
 
 } // namespace fxt

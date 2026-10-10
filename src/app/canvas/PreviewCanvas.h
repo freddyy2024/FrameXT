@@ -53,6 +53,7 @@ signals:
     void elementDeleteRequested(const QUuid &id);
     void elementContextMenuRequested(const QUuid &id, const QPoint &globalPos);
     void showWatermarkRequested();
+    void importRequested();   // 空态点击 → 打开文件对话框
 
 protected:
     void paintEvent(QPaintEvent *event) override;

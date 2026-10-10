@@ -17,11 +17,12 @@ constexpr int kBarHeight = 40;
 constexpr int kCaptionButtonWidth = 46;
 constexpr int kLogoSize = 22;
 
-// Segoe 图标字形：最小化 / 最大化 / 还原 / 关闭（与系统标题按钮同源字形）
+// Segoe 图标字形：最小化 / 最大化 / 还原 / 关闭 / 眼睛（与系统标题按钮同源字形）
 constexpr char16_t kGlyphMinimize = 0xE921;
 constexpr char16_t kGlyphMaximize = 0xE922;
 constexpr char16_t kGlyphRestore  = 0xE923;
 constexpr char16_t kGlyphClose    = 0xE8BB;
+constexpr char16_t kGlyphEye      = 0xE7B3;   // RedEye/View 图标
 
 QFont captionGlyphFont()
 {
@@ -86,6 +87,15 @@ TitleBar::TitleBar(QWidget *parent)
     m_languageButton->setPopupMode(QToolButton::InstantPopup);
     layout->addWidget(m_languageButton);
 
+    // 纯看图开关（👁，§3.4 第三态入口）：点击切换水印显隐
+    m_eyeButton = createCaptionButton(QStringLiteral("captionEye"),
+                                      QString(QChar(kGlyphEye)),
+                                      tr("纯看图（隐藏水印）"));
+    m_eyeButton->setCheckable(true);
+    connect(m_eyeButton, &QToolButton::toggled, this,
+            &TitleBar::watermarkEyeToggled);
+    layout->addWidget(m_eyeButton);
+
     m_minButton = createCaptionButton(QStringLiteral("captionMin"),
                                       QString(QChar(kGlyphMinimize)), tr("最小化"));
     m_maxButton = createCaptionButton(QStringLiteral("captionMax"),
@@ -104,9 +114,18 @@ TitleBar::TitleBar(QWidget *parent)
 bool TitleBar::isInteractiveAt(const QPoint &pos) const
 {
     return m_languageButton->geometry().contains(pos)
+        || m_eyeButton->geometry().contains(pos)
         || m_minButton->geometry().contains(pos)
         || m_maxButton->geometry().contains(pos)
         || m_closeButton->geometry().contains(pos);
+}
+
+void TitleBar::updateWatermarkEyeButton(bool hidden)
+{
+    QSignalBlocker blocker(m_eyeButton);   // 编程性同步不回发 toggled
+    m_eyeButton->setChecked(hidden);
+    m_eyeButton->setToolTip(hidden ? tr("显示水印")
+                                   : tr("纯看图（隐藏水印）"));
 }
 
 void TitleBar::updateMaximizeButton(bool maximized)

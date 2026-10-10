@@ -4,6 +4,7 @@
 #include <QColorDialog>
 #include <QComboBox>
 #include <QDoubleSpinBox>
+#include <QEvent>
 #include <QFontComboBox>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -238,7 +239,14 @@ QWidget *WatermarkPanel::makeRow(const Element &element,
         edit->setToolTip(isCustom ? tr("自定义文本内容")
                                   : tr("留空恢复原字段值"));
         layout->addWidget(edit, 1);
+        // 失焦也会发 editingFinished——只有用户真实改动过才提交，
+        // 防止「点进去不改值点别处」把合成显示值固化成覆盖层
+        connect(edit, &QLineEdit::textEdited, row,
+                [edit] { edit->setProperty("dirty", true); });
         connect(edit, &QLineEdit::editingFinished, row, [this, element, edit] {
+            if (!edit->property("dirty").toBool())
+                return;
+            edit->setProperty("dirty", false);
             emit elementContentEdited(element.id, edit->text());
         });
     } else {
@@ -263,12 +271,30 @@ QWidget *WatermarkPanel::makeRow(const Element &element,
     connect(check, &QCheckBox::toggled, row, [this, element](bool visible) {
         emit elementVisibleToggled(element.id, visible);
     });
+    // 点击行（编辑框/勾选框以外区域）= 选中联动（§3.5 行高亮）
+    row->setProperty("elementId", element.id);
+    row->installEventFilter(this);
+    label->installEventFilter(this);
+    m_rowByElement.insert(element.id, row);
     return row;
+}
+
+bool WatermarkPanel::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() == QEvent::MouseButtonPress) {
+        const QVariant id = watched->property("elementId");
+        if (!id.isNull()) {
+            setSelected(id.toUuid());
+            emit elementSelected(id.toUuid());
+        }
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 void WatermarkPanel::rebuildRows()
 {
     // 清空旧行（含编辑态），按当前元素树重建
+    m_rowByElement.clear();
     QList<QWidget*> stale;
     auto *rowsLayout = qobject_cast<QVBoxLayout *>(m_rowsHost->layout());
     while (rowsLayout->count() > 0) {
@@ -293,7 +319,19 @@ void WatermarkPanel::rebuildRows()
 
 void WatermarkPanel::setSelected(const QUuid &id)
 {
+    // 行选中高亮（§3.5：画布选中 ⇄ 对应行联动）
+    if (QWidget *prev = m_rowByElement.value(m_selectedId)) {
+        prev->setProperty("rowSelected", false);
+        prev->style()->unpolish(prev);
+        prev->style()->polish(prev);
+    }
     m_selectedId = id;
+    if (QWidget *row = m_rowByElement.value(id)) {
+        row->setProperty("rowSelected", true);
+        row->style()->unpolish(row);
+        row->style()->polish(row);
+        row->setVisible(true);
+    }
     // 样式区：选中可样式化元素时展开并填充当前值
     const TextStyle *style = nullptr;
     for (const Element &el : m_elements) {

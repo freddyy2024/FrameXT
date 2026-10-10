@@ -30,6 +30,7 @@ public:
     void setCurrent(const QUuid &id);          // 不发 currentRequested
     void setSelection(const QSet<QUuid> &ids); // 不发 selectionRequested
     void setUndoEnabled(bool enabled);
+    void selectAll();   // Ctrl+A 全选（发出 selectionRequested）
     QUuid idAt(int row) const;
 
 signals:
@@ -40,6 +41,9 @@ signals:
     void clearRequested();
     void undoRequested();
     void applyToSelectedRequested();
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     void updateSummary();

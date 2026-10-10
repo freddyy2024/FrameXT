@@ -32,10 +32,10 @@ ProjectController::ProjectController(QObject *parent)
     m_renderWatcher = new QFutureWatcher<RenderResult>(this);
     connect(m_renderWatcher, &QFutureWatcher<RenderResult>::finished, this,
             [this] {
-                const quint64 gen = m_renderGeneration;
+                const quint64 gen = m_watcherGeneration;
                 const RenderResult result = m_renderWatcher->result();
                 if (gen != m_renderGeneration)
-                    return;   // 过期结果（期间又有新请求），丢弃
+                    return;   // 过期结果（请求时代号已被 ++），丢弃
                 if (!result.ok) {
                     if (!result.error.isEmpty())
                         emit renderError(result.error);
@@ -59,6 +59,15 @@ PhotoDocument *ProjectController::document(const QUuid &id)
 PhotoDocument *ProjectController::current()
 {
     return document(m_currentId);
+}
+
+const PhotoDocument *ProjectController::current() const
+{
+    for (const PhotoDocument &doc : m_documents) {
+        if (doc.id == m_currentId)
+            return &doc;
+    }
+    return nullptr;
 }
 
 void ProjectController::setCurrentId(const QUuid &id)
@@ -144,10 +153,15 @@ void ProjectController::clearDocuments()
 
 void ProjectController::pushUndo(const QUuid &photoId)
 {
+    pushUndo(photoId, QUuid());
+}
+
+void ProjectController::pushUndo(const QUuid &photoId, const QUuid &groupId)
+{
     PhotoDocument *doc = document(photoId);
     if (!doc)
         return;
-    m_undoStack.append({photoId, doc->templateState, doc->overrides});
+    m_undoStack.append({photoId, doc->templateState, doc->overrides, groupId});
     if (m_undoStack.size() > kUndoDepth)
         m_undoStack.removeFirst();
     emit undoAvailabilityChanged(true);
@@ -212,24 +226,34 @@ void ProjectController::setTemplateId(const QString &templateId)
     if (!doc || doc->templateState.templateId == templateId)
         return;
     pushUndo(doc->id);
-    // 模板切换：元素树/行组重建（E9-6：自定义文本=kind Free 保留；
-    // 手动定位元素保留位置语义——按 fieldKey 匹配回植 hasCustomPosition）
-    QHash<QString, Element> previous;
-    for (const Element &el : doc->templateState.elements)
-        previous.insert(el.fieldKey, el);
+    // 模板切换：元素树/行组重建。
+    // 保留规则（E9-6）：① 自定义文本（fieldKey 空）全数保留——不能用
+    // fieldKey 做 key 收集（空 key 在 QHash 里互相覆盖）；
+    // ② 绑定字段元素的手动定位按 fieldKey 回植到新元素树
+    QList<Element> keptCustom;
+    QHash<QString, Element> positioned;
+    for (const Element &el : doc->templateState.elements) {
+        if (el.kind == ElementKind::Text && el.fieldKey.isEmpty())
+            keptCustom.append(el);
+        else if (el.hasCustomPosition && !el.fieldKey.isEmpty())
+            positioned.insert(el.fieldKey, el);
+    }
 
     const BuiltinTemplates::BuiltinSpec spec =
         BuiltinTemplates::defaultSpec(templateId);
     doc->templateState.templateId = templateId;
     doc->templateState.templateParams.clear();
 
-    // 自定义文本（fieldKey 空 = 自由文本）跨模板保留（E9-6）
-    QList<Element> kept;
-    for (const Element &el : previous) {
-        if (el.kind == ElementKind::Text && el.fieldKey.isEmpty())
-            kept.append(el);
+    QList<Element> merged = spec.elements;
+    for (Element &el : merged) {
+        const auto it = positioned.constFind(el.fieldKey);
+        if (it != positioned.constEnd()) {
+            el.anchor = it->anchor;
+            el.offset = it->offset;
+            el.hasCustomPosition = true;
+        }
     }
-    doc->templateState.elements = spec.elements + kept;
+    doc->templateState.elements = merged + keptCustom;
     emit documentChanged(doc->id);
     scheduleRender();
 }
@@ -260,14 +284,37 @@ void ProjectController::nudgeElement(const QUuid &elementId,
     if (!doc)
         return;
     for (Element &el : doc->templateState.elements) {
-        if (el.id == elementId) {
-            pushUndo(doc->id);
-            el.offset += offsetDelta;
-            el.hasCustomPosition = true;
-            emit documentChanged(doc->id);
-            scheduleRender();
-            return;
+        if (el.id != elementId)
+            continue;
+        QPointF startOffset = el.offset;
+        if (!el.hasCustomPosition) {
+            // 首次拖动：行组排布位置与 anchor+offset 参考系不同源，
+            // 先把当前像素位置物化为 offset 基准，否则元素会跳变到锚点附近
+            const CanvasPlan plan = canvasPlanFor(*doc);
+            if (!plan.canvasSize.isEmpty()) {
+                const auto layouts = LayoutEngine::resolve(
+                    doc->templateState.elements,
+                    BuiltinTemplates::defaultRows(doc->templateState.elements),
+                    plan, fieldResolver(*doc),
+                    [this, doc](const QString &) { return resolveLogo(*doc); });
+                const auto it = layouts.constFind(elementId);
+                if (it != layouts.constEnd()) {
+                    const QPointF base =
+                        LayoutEngine::anchorBase(el.anchor, plan);
+                    startOffset =
+                        QPointF((it->pxRect.left() - base.x())
+                                    / plan.canvasSize.width(),
+                                (it->pxRect.top() - base.y())
+                                    / plan.canvasSize.height());
+                }
+            }
         }
+        pushUndo(doc->id);
+        el.offset = startOffset + offsetDelta;
+        el.hasCustomPosition = true;
+        emit documentChanged(doc->id);
+        scheduleRender();
+        return;
     }
 }
 
@@ -397,13 +444,32 @@ void ProjectController::undo()
 {
     if (m_undoStack.isEmpty())
         return;
-    const UndoSnapshot snap = m_undoStack.takeLast();
-    PhotoDocument *doc = document(snap.photoId);
-    if (doc) {
-        doc->templateState = snap.state;
-        doc->overrides = snap.overrides;
-        emit documentChanged(doc->id);
-        if (doc->id == m_currentId)
+    // 批量操作（同一 groupId）整组回退 = 一步撤销（3.7 准入）；
+    // 空组号的普通操作只弹一个快照
+    const QUuid group = m_undoStack.last().groupId;
+    bool restored = false;
+    QUuid lastRestoredId;
+    while (!m_undoStack.isEmpty()) {
+        if (!group.isNull()
+            && m_undoStack.last().groupId != group)
+            break;   // 组边界：整组弹完即止
+        const UndoSnapshot snap = m_undoStack.takeLast();
+        PhotoDocument *doc = document(snap.photoId);
+        if (doc) {
+            doc->templateState = snap.state;
+            doc->overrides = snap.overrides;
+            emit documentChanged(doc->id);
+            lastRestoredId = doc->id;
+            restored = true;
+        }
+        if (group.isNull())
+            break;   // 单步：弹一个即止
+    }
+    if (restored) {
+        // 批量回退涉及多张时跳到最近回退的对象，让用户看到撤销效果
+        if (lastRestoredId != m_currentId)
+            setCurrentId(lastRestoredId);
+        else
             renderNow();
     }
     emit undoAvailabilityChanged(canUndo());
@@ -439,13 +505,14 @@ int ProjectController::applyCurrentTo(ApplyScope scope, bool keepManualPositions
     if (!src)
         return 0;
 
-    // 一次批量 = 一个撤销快照组（逐张 push 前像；undo 逐步回退可接受）
+    // 一次批量 = 一个撤销组：undo 一步整组回退（3.7 准入）
+    const QUuid groupId = QUuid::createUuid();
     int applied = 0;
     for (const QUuid &id : scopeTargets(scope)) {
         PhotoDocument *doc = document(id);
         if (!doc || doc->id == src->id)
             continue;
-        pushUndo(doc->id);
+        pushUndo(doc->id, groupId);
         TemplateState next = src->templateState;
         if (keepManualPositions) {
             // 保留该照片的手动定位元素（按 fieldKey 匹配回植）
@@ -471,6 +538,19 @@ int ProjectController::applyCurrentTo(ApplyScope scope, bool keepManualPositions
     return applied;
 }
 
+int ProjectController::applyTargetCount(ApplyScope scope) const
+{
+    // 确认框如实展示作用面（含源照片跳过后的净数量）
+    const PhotoDocument *src = current();
+    int count = 0;
+    for (const QUuid &id : scopeTargets(scope)) {
+        if (src && id == src->id)
+            continue;
+        ++count;
+    }
+    return count;
+}
+
 // —— 渲染 ——
 
 RenderRequest ProjectController::renderRequest(const PhotoDocument &doc) const
@@ -485,24 +565,29 @@ RenderRequest ProjectController::renderRequest(const PhotoDocument &doc) const
     return req;
 }
 
+CanvasPlan ProjectController::canvasPlanFor(const PhotoDocument &doc) const
+{
+    // 与 RenderPipeline S2 同源：预览缩放尺寸 → 画布 plan
+    const qreal scale = previewScaleFor(doc.meta.pixelSize);
+    const QSize scaled(qRound(doc.meta.pixelSize.width() * scale),
+                       qRound(doc.meta.pixelSize.height() * scale));
+    return CanvasGeometry::plan(doc.templateState.templateId, scaled);
+}
+
 QList<QPair<QUuid, ElementLayout>> ProjectController::elementLayouts()
 {
     PhotoDocument *doc = current();
     if (!doc || doc->meta.pixelSize.isEmpty())
         return {};
-    // 与 RenderPipeline S2/S5 同源：预览缩放尺寸 → 画布 plan → 布局解算
-    const qreal scale = previewScaleFor(doc->meta.pixelSize);
-    const QSize scaled(qRound(doc->meta.pixelSize.width() * scale),
-                       qRound(doc->meta.pixelSize.height() * scale));
-    const CanvasPlan plan =
-        CanvasGeometry::plan(doc->templateState.templateId, scaled);
+    const CanvasPlan plan = canvasPlanFor(*doc);
     if (plan.canvasSize.isEmpty())
         return {};
 
+    const auto resolver = fieldResolver(*doc);
     const QHash<QUuid, ElementLayout> resolved = LayoutEngine::resolve(
         doc->templateState.elements,
         BuiltinTemplates::defaultRows(doc->templateState.elements), plan,
-        fieldResolver(*doc),
+        resolver,
         [this, doc](const QString &key) {
             Q_UNUSED(key);
             return resolveLogo(*doc);
@@ -514,8 +599,14 @@ QList<QPair<QUuid, ElementLayout>> ProjectController::elementLayouts()
         if (!el.visible)
             continue;   // 不可见元素不参与画布命中
         const auto it = resolved.constFind(el.id);
-        if (it != resolved.constEnd())
-            ordered.append({ el.id, it.value() });
+        if (it == resolved.constEnd())
+            continue;
+        ElementLayout layout = it.value();
+        // 就地编辑初值必须是未截断文本（LayoutEngine 行溢出时
+        // resolvedText 已被 elide，写回会静默破坏原值）
+        layout.resolvedText =
+            el.fieldKey.isEmpty() ? el.literal : resolver(el.fieldKey);
+        ordered.append({ el.id, layout });
     }
     return ordered;
 }
@@ -534,7 +625,10 @@ void ProjectController::renderNow()
 {
     m_renderDebounce.stop();
     PhotoDocument *doc = current();
+    // 使在途旧结果过期（清空列表等空分支同样要作废幽灵预览）
+    const quint64 gen = ++m_renderGeneration;
     if (!doc) {
+        m_renderWatcher->setFuture(QFuture<RenderResult>());
         m_preview = QImage();
         emit previewUpdated(m_preview);
         return;
@@ -543,7 +637,7 @@ void ProjectController::renderNow()
     const auto resolver = fieldResolver(*doc);
     const QImage logo = resolveLogo(*doc);
     const bool hideWatermark = m_watermarkHidden;
-    const quint64 gen = ++m_renderGeneration;
+    m_watcherGeneration = gen;
 
     TemplateState state = req.templateState;
     if (hideWatermark) {

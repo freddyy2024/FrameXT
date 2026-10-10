@@ -5,32 +5,32 @@
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="29" />
         <source>基础属性</source>
-        <translation type="finished">基础属性</translation>
+        <translation type="finished">基礎屬性</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="33" />
         <source>复制</source>
-        <translation type="finished">复制</translation>
+        <translation type="finished">複製</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="35" />
         <source>复制全部属性文本</source>
-        <translation type="finished">复制全部属性文本</translation>
+        <translation type="finished">複製全部屬性文字</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="90" />
         <source>相机器材</source>
-        <translation type="finished">相机器材</translation>
+        <translation type="finished">相機器材</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="91" />
         <source>相机型号</source>
-        <translation type="finished">相机型号</translation>
+        <translation type="finished">相機型號</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="93" />
         <source>拍摄时间</source>
-        <translation type="finished">拍摄时间</translation>
+        <translation type="finished">拍攝時間</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="94" />
@@ -40,7 +40,7 @@
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="95" />
         <source>快门</source>
-        <translation type="finished">快门</translation>
+        <translation type="finished">快門</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="96" />
@@ -50,17 +50,17 @@
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="97" />
         <source>曝光补偿</source>
-        <translation type="finished">曝光补偿</translation>
+        <translation type="finished">曝光補償</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="98" />
         <source>测光模式</source>
-        <translation type="finished">测光模式</translation>
+        <translation type="finished">測光模式</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="99" />
         <source>闪光灯</source>
-        <translation type="finished">闪光灯</translation>
+        <translation type="finished">閃光燈</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="100" />
@@ -70,7 +70,7 @@
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="102" />
         <source>镜头</source>
-        <translation type="finished">镜头</translation>
+        <translation type="finished">鏡頭</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="103" />
@@ -85,12 +85,12 @@
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="106" />
         <source>纬度</source>
-        <translation type="finished">纬度</translation>
+        <translation type="finished">緯度</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="107" />
         <source>经度</source>
-        <translation type="finished">经度</translation>
+        <translation type="finished">經度</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="108" />
@@ -100,22 +100,22 @@
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="110" />
         <source>胶片模拟</source>
-        <translation type="finished">胶片模拟</translation>
+        <translation type="finished">底片模擬</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="111" />
         <source>创意风格</source>
-        <translation type="finished">创意风格</translation>
+        <translation type="finished">創意風格</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="112" />
         <source>优化校准</source>
-        <translation type="finished">优化校准</translation>
+        <translation type="finished">優化校準</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/BasicInfoPanel.cpp" line="114" />
         <source>软件</source>
-        <translation type="finished">软件</translation>
+        <translation type="finished">軟體</translation>
     </message>
 </context>
 <context>
@@ -133,122 +133,122 @@
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="223" />
         <source>导入完成</source>
-        <translation type="finished">导入完成</translation>
+        <translation type="finished">匯入完成</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="224" />
         <source>成功 %1 张 · 失败 %2 张：
 %3</source>
-        <translation type="finished">成功 %1 张 · 失败 %2 张：
+        <translation type="finished">成功 %1 張 · 失敗 %2 張：
 %3</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="354" />
         <source>自定义文本最多 5 条</source>
-        <translation type="finished">自定义文本最多 5 条</translation>
+        <translation type="finished">自訂文字最多 5 條</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="381" />
         <source>批量应用</source>
-        <translation type="finished">批量应用</translation>
+        <translation type="finished">批次套用</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="382" />
         <source>将把当前照片的模板与水印设置应用到 %1 张照片？</source>
-        <translation type="finished">将把当前照片的模板与水印设置应用到 %1 张照片？</translation>
+        <translation type="finished">將把目前照片的範本與浮水印設定套用到 %1 張照片？</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="385" />
         <source>应用</source>
-        <translation type="finished">应用</translation>
+        <translation type="finished">套用</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="387" />
         <source>保留已手动调整的位置</source>
-        <translation type="finished">保留已手动调整的位置</translation>
+        <translation type="finished">保留已手動調整的位置</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="395" />
         <source>已应用到 %1 张照片 · 可撤销</source>
-        <translation type="finished">已应用到 %1 张照片 · 可撤销</translation>
+        <translation type="finished">已套用到 %1 張照片 · 可復原</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="397" />
         <source>没有需要应用的照片</source>
-        <translation type="finished">没有需要应用的照片</translation>
+        <translation type="finished">沒有需要套用的照片</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="424" />
         <source>导入照片…</source>
-        <translation type="finished">导入照片…</translation>
+        <translation type="finished">匯入照片…</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="428" />
         <source>选择照片</source>
-        <translation type="finished">选择照片</translation>
+        <translation type="finished">選擇照片</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="429" />
         <source>照片文件 (%1)</source>
-        <translation type="finished">照片文件 (%1)</translation>
+        <translation type="finished">照片檔案 (%1)</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="437" />
         <location filename="../../src/app/MainWindow.cpp" line="604" />
         <location filename="../../src/app/MainWindow.cpp" line="787" />
         <source>尚未导入照片</source>
-        <translation type="finished">尚未导入照片</translation>
+        <translation type="finished">尚未匯入照片</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="441" />
         <source>执行导出</source>
-        <translation type="finished">执行导出</translation>
+        <translation type="finished">執行匯出</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="444" />
         <source>导出功能将在 M4 接入</source>
-        <translation type="finished">导出功能将在 M4 接入</translation>
+        <translation type="finished">匯出功能即將上線</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="447" />
         <location filename="../../src/app/MainWindow.cpp" line="737" />
         <source>关于 FrameXT</source>
-        <translation type="finished">关于 FrameXT</translation>
+        <translation type="finished">關於 FrameXT</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="453" />
         <source>导入导出</source>
-        <translation type="finished">导入导出</translation>
+        <translation type="finished">匯入匯出</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="479" />
         <source>适配</source>
-        <translation type="finished">适配</translation>
+        <translation type="finished">適配</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="515" />
         <source>对比原图</source>
-        <translation type="finished">对比原图</translation>
+        <translation type="finished">對比原圖</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="517" />
         <source>按住临时隐藏边框水印查看原片</source>
-        <translation type="finished">按住临时隐藏边框水印查看原片</translation>
+        <translation type="finished">按住暫時隱藏邊框浮水印檢視原片</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="526" />
         <source>空格拖拽平移 · 滚轮缩放</source>
-        <translation type="finished">空格拖拽平移 · 滚轮缩放</translation>
+        <translation type="finished">空格拖曳平移 · 滾輪縮放</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="549" />
         <source>底部边框</source>
-        <translation type="finished">底部边框</translation>
+        <translation type="finished">底部邊框</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="550" />
         <source>环绕边框</source>
-        <translation type="finished">环绕边框</translation>
+        <translation type="finished">環繞邊框</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="551" />
@@ -258,7 +258,7 @@
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="560" />
         <source>模板</source>
-        <translation type="finished">模板</translation>
+        <translation type="finished">範本</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="586" />
@@ -269,44 +269,44 @@
         <location filename="../../src/app/MainWindow.cpp" line="613" />
         <location filename="../../src/app/MainWindow.cpp" line="788" />
         <source>已选 %1 张</source>
-        <translation type="finished">已选 %1 张</translation>
+        <translation type="finished">已選 %1 張</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="642" />
         <source>置顶</source>
-        <translation type="finished">置顶</translation>
+        <translation type="finished">置頂</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="646" />
         <source>还原位置</source>
-        <translation type="finished">还原位置</translation>
+        <translation type="finished">還原位置</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="661" />
         <source>删除</source>
-        <translation type="finished">删除</translation>
+        <translation type="finished">刪除</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="666" />
         <source>隐藏</source>
-        <translation type="finished">隐藏</translation>
+        <translation type="finished">隱藏</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="749" />
         <source>本地照片边框水印工具 — 照片不会离开这台电脑。</source>
-        <translation type="finished">本地照片边框水印工具 — 照片不会离开这台电脑。</translation>
+        <translation type="finished">本機照片邊框浮水印工具 — 照片不會離開這台電腦。</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="758" />
         <source>本软件使用了 Qt、exiv2、libpng、libjpeg、zlib 等开源组件，
 许可声明见安装目录 licenses/。</source>
-        <translation type="finished">本软件使用了 Qt、exiv2、libpng、libjpeg、zlib 等开源组件，
-许可声明见安装目录 licenses/。</translation>
+        <translation type="finished">本軟體使用了 Qt、exiv2、libpng、libjpeg、zlib 等開源元件，
+許可聲明見安裝目錄 licenses/。</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="768" />
         <source>关闭</source>
-        <translation type="finished">关闭</translation>
+        <translation type="finished">關閉</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="797" />
@@ -316,7 +316,7 @@
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="798" />
         <source>将移除全部 %1 张照片（不删除文件）。继续？</source>
-        <translation type="finished">将移除全部 %1 张照片（不删除文件）。继续？</translation>
+        <translation type="finished">將移除全部 %1 張照片（不刪除檔案）。繼續？</translation>
     </message>
 </context>
 <context>
@@ -329,12 +329,12 @@
     <message>
         <location filename="../../src/app/panels/PhotoListPanel.cpp" line="36" />
         <source>撤销</source>
-        <translation type="finished">撤销</translation>
+        <translation type="finished">復原</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/PhotoListPanel.cpp" line="39" />
         <source>Ctrl+Z 可撤销</source>
-        <translation type="finished">Ctrl+Z 可撤销</translation>
+        <translation type="finished">Ctrl+Z 可復原</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/PhotoListPanel.cpp" line="41" />
@@ -344,32 +344,32 @@
     <message>
         <location filename="../../src/app/panels/PhotoListPanel.cpp" line="156" />
         <source>拖入照片或点击选择</source>
-        <translation type="finished">拖入照片或点击选择</translation>
+        <translation type="finished">拖入照片或點擊選擇</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/PhotoListPanel.cpp" line="163" />
         <source>共 %1 张 · 已选 %2 张 · 当前第 %3 张 / %4</source>
-        <translation type="finished">共 %1 张 · 已选 %2 张 · 当前第 %3 张 / %4</translation>
+        <translation type="finished">共 %1 張 · 已選 %2 張 · 目前第 %3 張 / %4</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/PhotoListPanel.cpp" line="176" />
         <source>设为当前</source>
-        <translation type="finished">设为当前</translation>
+        <translation type="finished">設為目前</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/PhotoListPanel.cpp" line="180" />
         <source>应用当前设置到选中…</source>
-        <translation type="finished">应用当前设置到选中…</translation>
+        <translation type="finished">套用目前設定到選取…</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/PhotoListPanel.cpp" line="184" />
         <source>从列表移除</source>
-        <translation type="finished">从列表移除</translation>
+        <translation type="finished">從列表移除</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/PhotoListPanel.cpp" line="188" />
         <source>移除未选中</source>
-        <translation type="finished">移除未选中</translation>
+        <translation type="finished">移除未選取</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/PhotoListPanel.cpp" line="194" />
@@ -383,13 +383,13 @@
         <location filename="../../src/app/canvas/PreviewCanvas.cpp" line="204" />
         <source>拖入照片开始使用
 或点击选择 — 照片不会离开这台电脑</source>
-        <translation type="finished">拖入照片开始使用
-或点击选择 — 照片不会离开这台电脑</translation>
+        <translation type="finished">拖入照片開始使用
+或點擊選擇 — 照片不會離開這台電腦</translation>
     </message>
     <message>
         <location filename="../../src/app/canvas/PreviewCanvas.cpp" line="290" />
         <source>已隐藏水印 · 显示</source>
-        <translation type="finished">已隐藏水印 · 显示</translation>
+        <translation type="finished">已隱藏浮水印 · 顯示</translation>
     </message>
 </context>
 <context>
@@ -397,7 +397,7 @@
     <message>
         <location filename="../../src/app/controllers/ProjectController.cpp" line="384" />
         <source>自定义文本</source>
-        <translation type="finished">自定义文本</translation>
+        <translation type="finished">自訂文字</translation>
     </message>
 </context>
 <context>
@@ -426,12 +426,12 @@
     <message>
         <location filename="../../src/app/TitleBar.cpp" line="94" />
         <source>关闭</source>
-        <translation type="finished">关闭</translation>
+        <translation type="finished">關閉</translation>
     </message>
     <message>
         <location filename="../../src/app/TitleBar.cpp" line="115" />
         <source>向下还原</source>
-        <translation type="finished">向下还原</translation>
+        <translation type="finished">向下還原</translation>
     </message>
 </context>
 <context>
@@ -444,32 +444,32 @@
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="29" />
         <source>自定义文本</source>
-        <translation type="finished">自定义文本</translation>
+        <translation type="finished">自訂文字</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="31" />
         <source>相机品牌</source>
-        <translation type="finished">相机品牌</translation>
+        <translation type="finished">相機品牌</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="32" />
         <source>相机型号</source>
-        <translation type="finished">相机型号</translation>
+        <translation type="finished">相機型號</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="33" />
         <source>镜头型号</source>
-        <translation type="finished">镜头型号</translation>
+        <translation type="finished">鏡頭型號</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="34" />
         <source>参数串</source>
-        <translation type="finished">参数串</translation>
+        <translation type="finished">參數串</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="35" />
         <source>拍摄日期</source>
-        <translation type="finished">拍摄日期</translation>
+        <translation type="finished">拍攝日期</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="36" />
@@ -484,32 +484,32 @@
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="57" />
         <source>水印内容</source>
-        <translation type="finished">水印内容</translation>
+        <translation type="finished">浮水印內容</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="61" />
         <source>＋ 自定义文本</source>
-        <translation type="finished">＋ 自定义文本</translation>
+        <translation type="finished">＋ 自訂文字</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="63" />
         <source>添加自定义文本（最多 5 条）</source>
-        <translation type="finished">添加自定义文本（最多 5 条）</translation>
+        <translation type="finished">新增自訂文字（最多 5 條）</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="91" />
         <source>应用到</source>
-        <translation type="finished">应用到</translation>
+        <translation type="finished">套用到</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="93" />
         <source>当前照片</source>
-        <translation type="finished">当前照片</translation>
+        <translation type="finished">目前照片</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="94" />
         <source>选中的照片</source>
-        <translation type="finished">选中的照片</translation>
+        <translation type="finished">選取的照片</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="95" />
@@ -519,22 +519,22 @@
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="97" />
         <source>应用…</source>
-        <translation type="finished">应用…</translation>
+        <translation type="finished">套用…</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="111" />
         <source>选中元素样式</source>
-        <translation type="finished">选中元素样式</translation>
+        <translation type="finished">選取元素樣式</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="125" />
         <source>字号（相对画布宽）</source>
-        <translation type="finished">字号（相对画布宽）</translation>
+        <translation type="finished">字號（相對畫布寬）</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="126" />
         <source>字号</source>
-        <translation type="finished">字号</translation>
+        <translation type="finished">字號</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="130" />
@@ -550,22 +550,22 @@
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="142" />
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="188" />
         <source>文字颜色</source>
-        <translation type="finished">文字颜色</translation>
+        <translation type="finished">文字顏色</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="143" />
         <source>颜色</source>
-        <translation type="finished">颜色</translation>
+        <translation type="finished">顏色</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="150" />
         <source>字间距（相对画布宽）</source>
-        <translation type="finished">字间距（相对画布宽）</translation>
+        <translation type="finished">字間距（相對畫布寬）</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="151" />
         <source>字间距</source>
-        <translation type="finished">字间距</translation>
+        <translation type="finished">字間距</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="156" />
@@ -575,17 +575,17 @@
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="159" />
         <source>还原位置</source>
-        <translation type="finished">还原位置</translation>
+        <translation type="finished">還原位置</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="238" />
         <source>自定义文本内容</source>
-        <translation type="finished">自定义文本内容</translation>
+        <translation type="finished">自訂文字內容</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="239" />
         <source>留空恢复原字段值</source>
-        <translation type="finished">留空恢复原字段值</translation>
+        <translation type="finished">留空恢復原欄位值</translation>
     </message>
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="254" />
@@ -595,7 +595,7 @@
     <message>
         <location filename="../../src/app/panels/WatermarkPanel.cpp" line="255" />
         <source>删除此自定义文本</source>
-        <translation type="finished">删除此自定义文本</translation>
+        <translation type="finished">刪除此自訂文字</translation>
     </message>
 </context>
 </TS>

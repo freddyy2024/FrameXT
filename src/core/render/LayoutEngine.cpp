@@ -196,26 +196,30 @@ QHash<QUuid, ElementLayout> LayoutEngine::resolve(const QList<Element> &elements
         // 手动定位元素不绑定行高，度量以信息带整体高度为参照
         const QSizeF size = measure(e, text, logo, canvasW, plan.exBandHeight);
 
-        QPointF base;
-        switch (e.anchor) {
-        case Anchor::TopLeft:        base = QPointF(0, 0); break;
-        case Anchor::TopCenter:      base = QPointF(canvasW / 2.0, 0); break;
-        case Anchor::TopRight:       base = QPointF(canvasW, 0); break;
-        case Anchor::MiddleLeft:     base = QPointF(0, plan.canvasSize.height() / 2.0); break;
-        case Anchor::Center:         base = QPointF(canvasW / 2.0, plan.canvasSize.height() / 2.0); break;
-        case Anchor::MiddleRight:    base = QPointF(canvasW, plan.canvasSize.height() / 2.0); break;
-        case Anchor::BottomLeft:     base = QPointF(0, plan.canvasSize.height()); break;
-        case Anchor::BottomCenter:   base = QPointF(canvasW / 2.0, plan.canvasSize.height()); break;
-        case Anchor::BottomRight:    base = QPointF(canvasW, plan.canvasSize.height()); break;
-        case Anchor::LogoLineStart:  base = QPointF(plan.photoRect.left(), plan.photoRect.bottom()); break;
-        }
-
+        const QPointF base = anchorBase(e.anchor, plan);
         const QPointF topLeft = base + QPointF(e.offset.x() * canvasW,
                                                e.offset.y() * plan.canvasSize.height());
         out.insert(e.id, ElementLayout { QRectF(topLeft, size), text });
     }
 
     return out;
+}
+
+QPointF LayoutEngine::anchorBase(Anchor anchor, const CanvasPlan &plan)
+{
+    switch (anchor) {
+    case Anchor::TopLeft:        return QPointF(0, 0);
+    case Anchor::TopCenter:      return QPointF(plan.canvasSize.width() / 2.0, 0);
+    case Anchor::TopRight:       return QPointF(plan.canvasSize.width(), 0);
+    case Anchor::MiddleLeft:     return QPointF(0, plan.canvasSize.height() / 2.0);
+    case Anchor::Center:         return QPointF(plan.canvasSize.width() / 2.0, plan.canvasSize.height() / 2.0);
+    case Anchor::MiddleRight:    return QPointF(plan.canvasSize.width(), plan.canvasSize.height() / 2.0);
+    case Anchor::BottomLeft:     return QPointF(0, plan.canvasSize.height());
+    case Anchor::BottomCenter:   return QPointF(plan.canvasSize.width() / 2.0, plan.canvasSize.height());
+    case Anchor::BottomRight:    return QPointF(plan.canvasSize.width(), plan.canvasSize.height());
+    case Anchor::LogoLineStart:  return QPointF(plan.photoRect.left(), plan.photoRect.bottom());
+    }
+    return QPointF(0, 0);
 }
 
 } // namespace fxt

@@ -31,13 +31,15 @@ int main(int argc, char *argv[])
         translator.load(QStringLiteral(":/i18n/app_en.qm"));
     if (!translator.isEmpty())
         app.installTranslator(&translator);
-    // Qt 自带对话框文案（文件对话框等）同步翻译
+    // Qt 自带对话框文案（文件对话框等）同步翻译；
+    // qtbase 磁盘文件名是下划线制（qtbase_zh_TW.qm），用 QLocale 匹配最稳
     QTranslator qtTranslator;
-    if (language != QLatin1String("zh-CN"))
-        qtTranslator.load(QStringLiteral("qtbase_%1")
-                              .arg(language),
+    if (language != QLatin1String("zh-CN")) {
+        qtTranslator.load(QLocale(language), QStringLiteral("qtbase"),
+                          QStringLiteral("_"),
                           QLibraryInfo::path(
                               QLibraryInfo::TranslationsPath));
+    }
     if (!qtTranslator.isEmpty())
         app.installTranslator(&qtTranslator);
 

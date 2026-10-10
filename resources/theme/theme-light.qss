@@ -376,3 +376,7 @@ QSplitter::handle {
     color: #5A6068;
     font-size: 12px;
 }
+#watermarkRow[rowSelected="true"] {
+    background: #EFEBFD;
+    border-left: 2px solid #6C5CE7;
+}

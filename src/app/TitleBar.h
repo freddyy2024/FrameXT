@@ -24,11 +24,15 @@ public:
 
     // 窗口最大化状态变化时刷新「最大化 / 向下还原」图标
     void updateMaximizeButton(bool maximized);
+    // 纯看图态同步（👁 按钮选中态刷新，避免按住对比原图时的状态漂移）
+    void updateWatermarkEyeButton(bool hidden);
 
 signals:
     void minimizeClicked();
     void maximizeClicked();
     void closeClicked();
+    // 纯看图开关（👁，§3.4 第三态入口）
+    void watermarkEyeToggled(bool hidden);
     // i18n（3.9）：语言菜单选择（"zh-CN" / "zh-TW" / "en"）
     void languageSelected(const QString &code);
 
@@ -48,6 +52,7 @@ private:
     QLabel *m_logoLabel = nullptr;
     QLabel *m_titleLabel = nullptr;
     QToolButton *m_languageButton = nullptr;
+    QToolButton *m_eyeButton = nullptr;
     QToolButton *m_minButton = nullptr;
     QToolButton *m_maxButton = nullptr;
     QToolButton *m_closeButton = nullptr;

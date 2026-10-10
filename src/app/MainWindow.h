@@ -11,6 +11,7 @@ class QTimer;
 class QToolButton;
 
 namespace fxt {
+enum class ApplyScope : int;   // ProjectController.h 定义（批量应用范围）
 class BasicInfoPanel;
 class ImportController;
 class PhotoListPanel;
@@ -62,6 +63,8 @@ private:
     void importPaths(const QStringList &paths);
     void refreshBasicInfo();
     void refreshWatermarkPanel();
+    void syncTemplateCombo();   // 模板下拉回同步（切照片/撤销后）
+    void runBatchApply(ApplyScope scope);   // §5.5 确认框+应用+toast
     void showElementContextMenu(const QUuid &elementId, const QPoint &globalPos);
     void showToast(const QString &text);
     void showAbout();
@@ -72,6 +75,7 @@ private:
 
     TitleBar *m_titleBar = nullptr;
     QSplitter *m_mainSplitter = nullptr;
+    QSplitter *m_rootSplitter = nullptr;   // 上三栏+下列表（3.10 持久化）
 
     // 控制器
     ProjectController *m_project = nullptr;
@@ -89,6 +93,7 @@ private:
     QLabel *m_toast = nullptr;           // 批量操作结果提示（3s 自动消失）
     QTimer *m_toastTimer = nullptr;
     QString m_lastDir;                   // 最近导入目录（3.10 持久化）
+    bool m_exitConfirmed = false;        // 语言切换自重启路径跳过退出确认
 };
 
 } // namespace fxt

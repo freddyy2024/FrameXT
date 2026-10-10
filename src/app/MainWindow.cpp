@@ -33,6 +33,7 @@
 #include <QRadioButton>
 #include <QScreen>
 #include <QSettings>
+#include <QShortcut>
 #include <QSlider>
 #include <QSplitter>
 #include <QTimer>
@@ -154,6 +155,9 @@ void MainWindow::buildUi()
         isMaximized() ? showNormal() : showMaximized();
     });
     connect(m_titleBar, &TitleBar::closeClicked, this, &QWidget::close);
+    // 纯看图开关（👁，§3.4 第三态入口）
+    connect(m_titleBar, &TitleBar::watermarkEyeToggled, m_project,
+            &ProjectController::setWatermarkHidden);
     connect(m_titleBar, &TitleBar::languageSelected, this,
             [this](const QString &code) {
                 // i18n（3.9）：写持久化 key，重启后生效（自重启最可靠，
@@ -168,9 +172,14 @@ void MainWindow::buildUi()
                 const auto answer = QMessageBox::question(
                     this, tr("切换界面语言"),
                     tr("语言将在重启应用后生效。立即重启吗？"));
-                if (answer != QMessageBox::Yes)
+                if (answer != QMessageBox::Yes) {
+                    // 不重启则回滚 key（避免下次启动语言「突变」）
+                    settings.setValue(QStringLiteral("app/language"),
+                                      current);
                     return;
+                }
                 QProcess::startDetached(QApplication::applicationFilePath());
+                m_exitConfirmed = true;   // 自重启不经退出确认
                 close();
             });
     rootLayout->addWidget(m_titleBar);
@@ -189,17 +198,17 @@ void MainWindow::buildUi()
     m_mainSplitter->setSizes({ 260, 714, 288 });
 
     // 上：三栏工作区；下：照片列表
-    auto *rootSplitter = new QSplitter(Qt::Vertical, central);
-    rootSplitter->setObjectName("rootSplitter");
-    rootSplitter->setChildrenCollapsible(false);
-    rootSplitter->setHandleWidth(kPanelSpacing);
-    rootSplitter->addWidget(m_mainSplitter);
-    rootSplitter->addWidget(buildBottomPanel());
-    rootSplitter->setStretchFactor(0, 1);
-    rootSplitter->setStretchFactor(1, 0);
-    rootSplitter->setSizes({ 770, kPhotoListHeight });
+    m_rootSplitter = new QSplitter(Qt::Vertical, central);
+    m_rootSplitter->setObjectName("rootSplitter");
+    m_rootSplitter->setChildrenCollapsible(false);
+    m_rootSplitter->setHandleWidth(kPanelSpacing);
+    m_rootSplitter->addWidget(m_mainSplitter);
+    m_rootSplitter->addWidget(buildBottomPanel());
+    m_rootSplitter->setStretchFactor(0, 1);
+    m_rootSplitter->setStretchFactor(1, 0);
+    m_rootSplitter->setSizes({ 770, kPhotoListHeight });
 
-    rootLayout->addWidget(rootSplitter, 1);
+    rootLayout->addWidget(m_rootSplitter, 1);
 
     // —— 导入流水线接线 ——
     setAcceptDrops(true);
@@ -245,10 +254,21 @@ void MainWindow::buildUi()
             });
     connect(m_project, &ProjectController::undoAvailabilityChanged, this,
             [this](bool avail) { m_photoList->setUndoEnabled(avail); });
-    connect(m_project, &ProjectController::watermarkHiddenChanged, m_canvas,
-            &PreviewCanvas::setWatermarkHiddenHint);
+    connect(m_project, &ProjectController::watermarkHiddenChanged, this,
+            [this](bool hidden) {
+                m_canvas->setWatermarkHiddenHint(hidden);
+                m_titleBar->updateWatermarkEyeButton(hidden);
+            });
+    connect(m_project, &ProjectController::renderError, this,
+            [this](const QString &message) { showToast(message); });
+    // documentChanged：左栏属性 + 右栏面板同步（画布入口的隐藏/置顶/
+    // 还原位置、模板切换换元素树——不刷新则面板行携旧 id 全部静默失效）
     connect(m_project, &ProjectController::documentChanged, this,
-            [this](const QUuid &) { refreshBasicInfo(); });
+            [this](const QUuid &) {
+                refreshBasicInfo();
+                refreshWatermarkPanel();
+                syncTemplateCombo();
+            });
 
     // —— 列表交互接线 ——
     connect(m_photoList, &PhotoListPanel::currentRequested, m_project,
@@ -280,6 +300,31 @@ void MainWindow::buildUi()
     connect(m_photoList, &PhotoListPanel::undoRequested, this, [this] {
         m_project->undo();
         refreshWatermarkPanel();   // 撤销可能回退元素树结构
+    });
+    // 列表右键「应用当前设置到选中…」与右栏 applyRequested 同径（scope=Selected）
+    connect(m_photoList, &PhotoListPanel::applyToSelectedRequested, this,
+            [this] { runBatchApply(ApplyScope::Selected); });
+
+    // —— 全局快捷键（§7.2：撤销/全选/列表 Del）——
+    auto *undoShortcut = new QShortcut(QKeySequence::Undo, this);
+    connect(undoShortcut, &QShortcut::activated, this, [this] {
+        m_project->undo();
+        refreshWatermarkPanel();
+    });
+    auto *selectAllShortcut = new QShortcut(QKeySequence::SelectAll, this);
+    connect(selectAllShortcut, &QShortcut::activated, m_photoList,
+            &PhotoListPanel::selectAll);
+
+    // —— 画布交互接线 ——
+    connect(m_canvas, &PreviewCanvas::importRequested, this, [this] {
+        // 空态点击导入（文案承诺「点击选择」）
+        const auto files = QFileDialog::getOpenFileNames(
+            this, tr("选择照片"), m_lastDir,
+            tr("照片文件 (%1)").arg(QStringLiteral("*.jpg *.jpeg *.png *.webp *.tif *.tiff")));
+        if (!files.isEmpty()) {
+            m_lastDir = QFileInfo(files.first()).absolutePath();
+            importPaths(files);
+        }
     });
 
     // —— 画布交互接线 ——
@@ -362,40 +407,7 @@ void MainWindow::buildUi()
                 refreshWatermarkPanel();
             });
     connect(m_watermarkPanel, &WatermarkPanel::applyRequested, this,
-            [this](ApplyScope scope) {
-                int targetCount = 0;
-                switch (scope) {
-                case ApplyScope::Current:
-                    targetCount = 1;
-                    break;
-                case ApplyScope::Selected:
-                    targetCount = m_project->selection().size();
-                    break;
-                case ApplyScope::All:
-                    targetCount = m_project->documents().size();
-                    break;
-                }
-                if (targetCount <= 0)
-                    return;
-                QMessageBox box(this);
-                box.setWindowTitle(tr("批量应用"));
-                box.setText(tr("将把当前照片的模板与水印设置应用到 %1 张照片？")
-                                .arg(targetCount));
-                box.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-                box.button(QMessageBox::Yes)->setText(tr("应用"));
-                auto *keepPos =
-                    new QCheckBox(tr("保留已手动调整的位置"), &box);
-                keepPos->setChecked(true);
-                box.setCheckBox(keepPos);
-                if (box.exec() != QMessageBox::Yes)
-                    return;
-                const int applied = m_project->applyCurrentTo(
-                    scope, keepPos->isChecked());
-                showToast(applied > 0
-                              ? tr("已应用到 %1 张照片 · 可撤销")
-                                    .arg(applied)
-                              : tr("没有需要应用的照片"));
-            });
+            [this](ApplyScope scope) { runBatchApply(scope); });
 
     updateEmptyState();
     restoreWindowState();
@@ -591,8 +603,10 @@ void MainWindow::importPaths(const QStringList &paths)
 {
     if (paths.isEmpty())
         return;
-    if (m_import->busy())
+    if (m_import->busy()) {
+        showToast(tr("正在导入，请稍后再试"));
         return;
+    }
     m_import->importFiles(paths);
 }
 
@@ -611,6 +625,46 @@ void MainWindow::refreshBasicInfo()
         fields.insert(it.key(), it.value());
     m_basicInfo->setFields(fields, true);
     m_importSummary->setText(tr("已选 %1 张").arg(m_project->documents().size()));
+}
+
+void MainWindow::syncTemplateCombo()
+{
+    // 回同步：切照片/撤销后下拉必须反映当前文档的模板
+    // （activated 只在用户改选时触发，同项点击不回发——回设不改状态）
+    const PhotoDocument *doc = m_project->current();
+    const QString id =
+        doc ? doc->templateState.templateId : QStringLiteral("bottom");
+    for (int i = 0; i < m_templateCombo->count(); ++i) {
+        if (m_templateCombo->itemData(i).toString() == id) {
+            QSignalBlocker blocker(m_templateCombo);
+            m_templateCombo->setCurrentIndex(i);
+            return;
+        }
+    }
+}
+
+void MainWindow::runBatchApply(ApplyScope scope)
+{
+    // 确认框数量 = 实际作用面（跳过源照片后的净数量，如实告知）
+    const int targetCount = m_project->applyTargetCount(scope);
+    if (targetCount <= 0)
+        return;
+    QMessageBox box(this);
+    box.setWindowTitle(tr("批量应用"));
+    box.setText(tr("将把当前照片的模板与水印设置应用到 %1 张照片？")
+                    .arg(targetCount));
+    box.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+    box.button(QMessageBox::Yes)->setText(tr("应用"));
+    auto *keepPos = new QCheckBox(tr("保留已手动调整的位置"), &box);
+    keepPos->setChecked(true);
+    box.setCheckBox(keepPos);
+    if (box.exec() != QMessageBox::Yes)
+        return;
+    const int applied =
+        m_project->applyCurrentTo(scope, keepPos->isChecked());
+    refreshWatermarkPanel();
+    showToast(applied > 0 ? tr("已应用到 %1 张照片 · 可撤销").arg(applied)
+                          : tr("没有需要应用的照片"));
 }
 
 void MainWindow::refreshWatermarkPanel()
@@ -708,10 +762,8 @@ void MainWindow::restoreWindowState()
     const QByteArray rootSizes = settings
                                      .value(QStringLiteral("window/rootSplitter"))
                                      .toByteArray();
-    if (!rootSizes.isEmpty())
-        m_mainSplitter->parentWidget()->findChild<QSplitter *>(
-            QStringLiteral("rootSplitter"))
-            ->restoreState(rootSizes);
+    if (!rootSizes.isEmpty() && m_rootSplitter)
+        m_rootSplitter->restoreState(rootSizes);
 }
 
 void MainWindow::saveWindowState()
@@ -721,12 +773,9 @@ void MainWindow::saveWindowState()
     settings.setValue(QStringLiteral("window/mainSplitter"),
                       m_mainSplitter ? m_mainSplitter->saveState()
                                      : QByteArray());
-    const auto *rootSplitter =
-        m_mainSplitter ? m_mainSplitter->parentWidget()->findChild<QSplitter *>(
-                             QStringLiteral("rootSplitter"))
-                       : nullptr;
     settings.setValue(QStringLiteral("window/rootSplitter"),
-                      rootSplitter ? rootSplitter->saveState() : QByteArray());
+                      m_rootSplitter ? m_rootSplitter->saveState()
+                                     : QByteArray());
     settings.setValue(QStringLiteral("import/lastDir"), m_lastDir);
 }
 
@@ -830,6 +879,18 @@ void MainWindow::dropEvent(QDropEvent *event)
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+    // §5.6 退出确认：有照片且未导出时挽留（照片工具最高频数据丢失场景）
+    if (!m_project->documents().isEmpty() && !m_exitConfirmed) {
+        const auto answer = QMessageBox::question(
+            this, tr("退出 FrameXT"),
+            tr("还有 %1 张照片未导出。确定退出吗？")
+                .arg(m_project->documents().size()),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if (answer != QMessageBox::Yes) {
+            event->ignore();
+            return;
+        }
+    }
     saveWindowState();
     QMainWindow::closeEvent(event);
 }

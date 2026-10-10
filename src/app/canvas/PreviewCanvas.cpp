@@ -35,6 +35,7 @@ PreviewCanvas::PreviewCanvas(QWidget *parent)
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
     setCursor(Qt::OpenHandCursor);
+    setContextMenuPolicy(Qt::CustomContextMenu);   // 右键元素菜单（无则菜单不可达）
     // 右键：命中元素则选中并发菜单请求（菜单本体在 MainWindow 装配）
     connect(this, &QWidget::customContextMenuRequested, this,
             [this](const QPoint &pos) {
@@ -201,7 +202,7 @@ void PreviewCanvas::paintEvent(QPaintEvent *)
         f.setPixelSize(14);
         p.setFont(f);
         p.drawText(rect(), Qt::AlignCenter,
-                   tr("拖入照片开始使用\n或点击选择 — 照片不会离开这台电脑"));
+                   tr("拖入照片开始使用\n或点击选择 — 照片不会离开这台电脑\n支持 JPEG·PNG·WebP·TIFF"));
         return;
     }
 
@@ -297,14 +298,21 @@ void PreviewCanvas::wheelEvent(QWheelEvent *event)
 {
     if (m_image.isNull())
         return;
-    const qreal step = event->angleDelta().y() > 0 ? 1.2 : 1.0 / 1.2;
+    const int dy = event->angleDelta().y();
+    if (dy == 0)
+        return;   // 横向滚动（触控板双指水平）不触发缩放
+    const qreal step = dy > 0 ? 1.2 : 1.0 / 1.2;
     setZoomAt(m_zoom * step, event->position());
 }
 
 void PreviewCanvas::mousePressEvent(QMouseEvent *event)
 {
-    if (m_image.isNull())
+    if (m_image.isNull()) {
+        // 空态点击 = 打开文件对话框（文案承诺「点击选择」）
+        if (event->button() == Qt::LeftButton)
+            emit importRequested();
         return;
+    }
 
     // 纯看图胶囊命中
     if (event->button() == Qt::LeftButton && m_watermarkHidden
@@ -322,6 +330,10 @@ void PreviewCanvas::mousePressEvent(QMouseEvent *event)
     }
 
     if (event->button() == Qt::LeftButton) {
+        // 纯看图态（水印隐藏）：元素不可见则不可交互
+        // （本就无水印，无需对比原图；也不发 compare——松开信号会解除隐藏态）
+        if (m_watermarkHidden)
+            return;
         const QPointF imgPos = toImagePos(event->pos());
         const QUuid hit = hitTest(imgPos);
         if (!hit.isNull()) {
@@ -442,10 +454,11 @@ void PreviewCanvas::mouseReleaseEvent(QMouseEvent *event)
         }
         m_dragRect = QRectF();
         update();
-        return;
     }
-    if (event->button() == Qt::MiddleButton
-        || (event->button() == Qt::LeftButton && m_spacePan)) {
+    // 平移结算无条件执行（先松空格再松左键的顺序也要退出拖拽态）
+    if (m_panning
+        && (event->button() == Qt::MiddleButton
+            || event->button() == Qt::LeftButton)) {
         m_panning = false;
         setCursor(m_spacePan ? Qt::OpenHandCursor : Qt::ArrowCursor);
     }
@@ -453,7 +466,8 @@ void PreviewCanvas::mouseReleaseEvent(QMouseEvent *event)
 
 void PreviewCanvas::mouseDoubleClickEvent(QMouseEvent *event)
 {
-    if (m_image.isNull() || event->button() != Qt::LeftButton)
+    if (m_image.isNull() || event->button() != Qt::LeftButton
+        || m_watermarkHidden)   // 纯看图态不可编辑隐藏元素
         return;
     const QUuid hit = hitTest(toImagePos(event->pos()));
     if (hit.isNull())
@@ -529,10 +543,14 @@ void PreviewCanvas::keyPressEvent(QKeyEvent *event)
         m_spacePan = true;
         setCursor(Qt::OpenHandCursor);
     } else if (event->key() == Qt::Key_Delete && !m_selectedId.isNull()
-               && !m_editor) {
+               && !m_editor && !m_watermarkHidden) {
         emit elementDeleteRequested(m_selectedId);
     } else if (event->key() == Qt::Key_Escape && m_editor) {
         commitTextEdit(false);
+    } else if (event->key() == Qt::Key_Escape && !m_selectedId.isNull()) {
+        m_selectedId = QUuid();   // Esc 取消选中（§7.2）
+        emit elementSelected(QUuid());
+        update();
     }
     QWidget::keyPressEvent(event);
 }

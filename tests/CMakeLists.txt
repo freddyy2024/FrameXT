@@ -46,6 +46,16 @@ add_test(NAME test_exif COMMAND test_exif)
 add_executable(test_brand test_brand.cpp)
 target_link_libraries(test_brand PRIVATE framext_core Qt6::Core Qt6::Test)
 
+# M3 评审修复：ProjectController 状态机（撤销/批量组/模板保留规则/布局过滤）
+# app 层 controller 直接编入测试 target（纯 QObject+QtCore 语义，可离屏测）
+add_executable(test_projectcontroller test_projectcontroller.cpp
+    ../src/app/controllers/ProjectController.cpp)
+target_include_directories(test_projectcontroller PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/app
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/core)
+target_link_libraries(test_projectcontroller PRIVATE framext_core Qt6::Core Qt6::Gui Qt6::Test)
+
 add_test(NAME test_samples COMMAND test_samples)
 add_test(NAME test_brand COMMAND test_brand)
+add_test(NAME test_projectcontroller COMMAND test_projectcontroller)
 

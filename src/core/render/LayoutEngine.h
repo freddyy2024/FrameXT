@@ -48,6 +48,10 @@ public:
                                                const FieldValueResolver &resolver,
                                                const LogoResolver &logoResolver);
 
+    // 锚点在画布上的基准点（手动定位参考系：topLeft = base + offset×画布）。
+    // 公开给 controller 层做「行组位置 → offset 参考系」的物化换算。
+    static QPointF anchorBase(Anchor anchor, const CanvasPlan &plan);
+
 private:
     // 元素显示尺寸度量（文本宽高 / Logo 等比 / 分隔线固定比例）；
     // fontScaleFactor：行溢出收缩系数（与 ElementPainter 绘制字号同源）

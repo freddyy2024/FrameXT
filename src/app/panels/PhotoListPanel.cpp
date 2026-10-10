@@ -1,7 +1,9 @@
 #include "panels/PhotoListPanel.h"
 
 #include <QApplication>
+#include <QEvent>
 #include <QHBoxLayout>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QListWidget>
 #include <QMenu>
@@ -55,6 +57,7 @@ PhotoListPanel::PhotoListPanel(QWidget *parent)
     m_list->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_list->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_list->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_list->installEventFilter(this);   // Del 键拦截（eventFilter）
     // 空态提示
     m_list->setStyleSheet(QString());
     connect(m_list, &QListWidget::itemSelectionChanged, this, [this] {
@@ -128,6 +131,29 @@ void PhotoListPanel::setSelection(const QSet<QUuid> &ids)
 void PhotoListPanel::setUndoEnabled(bool enabled)
 {
     m_undoButton->setEnabled(enabled);
+}
+
+void PhotoListPanel::selectAll()
+{
+    if (m_items.isEmpty())
+        return;
+    m_list->selectAll();   // ExtendedSelection 下全选 → itemSelectionChanged
+                           // → selectionRequested 照常回发
+}
+
+bool PhotoListPanel::eventFilter(QObject *watched, QEvent *event)
+{
+    // Del = 从列表移除（§3.7：不删文件）
+    if (watched == m_list && event->type() == QEvent::KeyPress) {
+        auto *keyEvent = static_cast<QKeyEvent *>(event);
+        if (keyEvent->key() == Qt::Key_Delete) {
+            const QSet<QUuid> doomed = selectedIds();
+            if (!doomed.isEmpty())
+                emit removeRequested(doomed.values());
+            return true;
+        }
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 QUuid PhotoListPanel::idAt(int row) const
