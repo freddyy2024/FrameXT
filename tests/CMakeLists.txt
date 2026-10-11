@@ -49,8 +49,9 @@ add_test(NAME test_golden COMMAND test_golden)
 add_test(NAME test_metadata COMMAND test_metadata)
 add_test(NAME test_exif COMMAND test_exif)
 # M2 收尾：BrandRegistry 品牌识别 + SensorRegistry 画幅倍率/等效焦距回退（R8）
-add_executable(test_brand test_brand.cpp)
-target_link_libraries(test_brand PRIVATE framext_core Qt6::Core Qt6::Test)
+# M5.4 起链 app 资源：断言 :/brands/brands.json 与 C++ 内置表一致
+add_executable(test_brand test_brand.cpp ../resources.qrc)
+target_link_libraries(test_brand PRIVATE framext_core Qt6::Core Qt6::Gui Qt6::Test)
 
 # M3 评审修复：ProjectController 状态机（撤销/批量组/模板保留规则/布局过滤）
 # app 层 controller 直接编入测试 target（纯 QObject+QtCore 语义，可离屏测）

@@ -1,5 +1,14 @@
 #include "metadata/BrandRegistry.h"
 
+#include <QDir>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QStandardPaths>
+
+#include <algorithm>
+
 namespace fxt {
 
 namespace {
@@ -94,6 +103,120 @@ bool startsWithCI(const QString &haystack, const QString &prefix)
     return !prefix.isEmpty() && haystack.startsWith(prefix, Qt::CaseInsensitive);
 }
 
+// Others 兜底声明（JSON fallback 缺失时的原样语义）
+BrandDef makeOthers()
+{
+    BrandDef def;
+    def.value = QStringLiteral("Others");
+    def.label = QStringLiteral("Others");
+    def.logoPath = QStringLiteral(":/logos/camera/others.png");
+    return def;
+}
+
+// brands.json 单条解析（字段缺失/非法 → ok=false 整条丢弃）
+bool brandFromJson(const QJsonObject &o, BrandDef &out)
+{
+    out.value = o["value"].toString();
+    out.label = o["label"].toString();
+    for (const QJsonValue &v : o["aliases"].toArray())
+        out.makeAliases.append(v.toString());
+    for (const QJsonValue &v : o["modelPrefixes"].toArray())
+        out.modelPrefixes.append(v.toString());
+    out.logoPath = o["logo"].toString();
+    // value/label/logo 是展示与匹配的最低要求；别名数组允许为空
+    return !out.value.isEmpty() && !out.label.isEmpty()
+        && !out.logoPath.isEmpty();
+}
+
+// 完整品牌表：qrc 基底 + 用户覆盖层合并结果 + fallback
+struct BrandTable
+{
+    QList<BrandDef> brands;
+    BrandDef fallback;
+};
+
+// 解析一份品牌 JSON 文档（基底/覆盖同格式）；结构非法返回 false
+bool tableFromJson(const QJsonDocument &doc, BrandTable &out)
+{
+    if (!doc.isObject())
+        return false;
+    const QJsonObject o = doc.object();
+    BrandTable t;
+    t.fallback = makeOthers();
+    for (const QJsonValue &v : o["brands"].toArray()) {
+        BrandDef b;
+        if (brandFromJson(v.toObject(), b))
+            t.brands.append(b);
+    }
+    const QJsonObject fb = o["fallback"].toObject();
+    if (!fb.isEmpty()) {
+        BrandDef b;
+        if (brandFromJson(fb, b))
+            t.fallback = b;
+    }
+    if (t.brands.isEmpty())
+        return false;   // 空表视为损坏（识别必然全落 Others，无意义）
+    out = t;
+    return true;
+}
+
+QString &userFile()
+{
+    static QString s_file = [] {
+        const QString base = QStandardPaths::writableLocation(
+            QStandardPaths::AppLocalDataLocation);
+        return base + QLatin1String("/brands.json");
+    }();
+    return s_file;
+}
+
+// 加载完整品牌表：qrc 基底 + 用户覆盖层合并
+BrandTable loadBrandTable()
+{
+    // 1) qrc 基底（唯一准绳）；解析失败回落 C++ 内置表（应急兜底，
+    //    防资源损坏破坏识别——两处同步由 test_brand 强制）
+    BrandTable t;
+    t.fallback = makeOthers();
+    QFile base(QStringLiteral(":/brands/brands.json"));
+    if (base.open(QIODevice::ReadOnly))
+        tableFromJson(QJsonDocument::fromJson(base.readAll()), t);
+    if (t.brands.isEmpty())
+        t.brands = makeBuiltin();
+    // 2) 用户覆盖层：同 value 整条替换、新 value 追加表尾、fallback
+    //    可整体替换。文件缺失=无覆盖；损坏忽略并告警（不崩）
+    QFile uf(userFile());
+    if (uf.open(QIODevice::ReadOnly)) {
+        BrandTable user;
+        if (tableFromJson(QJsonDocument::fromJson(uf.readAll()), user)) {
+            for (const BrandDef &ub : user.brands) {
+                auto it = std::find_if(t.brands.begin(), t.brands.end(),
+                                       [&ub](const BrandDef &b) {
+                                           return b.value == ub.value;
+                                       });
+                if (it != t.brands.end())
+                    *it = ub;
+                else
+                    t.brands.append(ub);
+            }
+            t.fallback = user.fallback;
+        } else {
+            qWarning("用户品牌覆盖文件解析失败，已忽略：%s",
+                     qPrintable(userFile()));
+        }
+    }
+    return t;
+}
+
+// 品牌表内存缓存（match 每次 Exif 展示都会调用，不能反复读盘）。
+// setUserBrandsFile 写操作后 refresh。
+BrandTable &table()
+{
+    static BrandTable s_table = loadBrandTable();
+    return s_table;
+}
+
+void refreshTable() { table() = loadBrandTable(); }
+
 } // namespace
 
 QList<BrandDef> BrandRegistry::builtin()
@@ -107,8 +230,9 @@ BrandDef BrandRegistry::match(const QString &make, const QString &model)
     // 第一轮：make 别名包含（"NIKON CORPORATION" contains "Nikon"）。
     // 命中多个品牌时不下结论（理光 GR 与宾得 K 系新机共用 make 串
     // "RICOH IMAGING"），交 model 消歧（评审 P1）
+    const QList<BrandDef> brands = table().brands;
     QList<BrandDef> byMake;
-    for (const BrandDef &brand : builtin()) {
+    for (const BrandDef &brand : brands) {
         for (const QString &alias : brand.makeAliases) {
             if (containsCI(make, alias)) {
                 byMake.append(brand);
@@ -130,7 +254,7 @@ BrandDef BrandRegistry::match(const QString &make, const QString &model)
     // 第二轮：make 未命中（空/异常）时 model 前缀兜底（修 #13 场景：
     // OM-1 的 Exif make 为 "OM Digital Solutions" 已走第一轮，此处兜住
     // 缺 make 的旧机型/特殊机身）
-    for (const BrandDef &brand : builtin()) {
+    for (const BrandDef &brand : brands) {
         for (const QString &prefix : brand.modelPrefixes)
             if (startsWithCI(model, prefix))
                 return brand;
@@ -138,13 +262,14 @@ BrandDef BrandRegistry::match(const QString &make, const QString &model)
     return others();
 }
 
-BrandDef BrandRegistry::others()
+BrandDef BrandRegistry::others() { return table().fallback; }
+
+void BrandRegistry::setUserBrandsFile(const QString &path)
 {
-    BrandDef def;
-    def.value = QStringLiteral("Others");
-    def.label = QStringLiteral("Others");
-    def.logoPath = QStringLiteral(":/logos/camera/others.png");
-    return def;
+    userFile() = path;
+    refreshTable();
 }
+
+QString BrandRegistry::userBrandsFile() { return userFile(); }
 
 } // namespace fxt

@@ -1,5 +1,12 @@
 // M2 收尾单测：BrandRegistry（品牌识别/别名/前缀/回落）+ SensorRegistry
 //（画幅裁切倍率/等效焦距回退换算，R8）
+// M5.4 增补：brands.json 数据源接线（qrc 与内置表一致性 + 用户覆盖层）
+#include <QFile>
+#include <QHash>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QTemporaryDir>
 #include <QtTest>
 
 #include "metadata/BrandRegistry.h"
@@ -19,6 +26,10 @@ private slots:
     void modelPrefixFallback() const;
     void unmatchedFallsBackToOthers() const;
     void panasonicShowsLumix() const;
+    // —— M5.4 数据源接线 ——
+    void jsonResourceMatchesBuiltin() const;
+    void userOverlayOverridesAndExtends() const;
+    void userOverlayCorruptIgnored() const;
     // —— 评审回归 ——
     void ricohPentaxDisambiguation() const;
     void phoneBrandsAndCaseVariants() const;
@@ -102,6 +113,162 @@ void TestBrand::panasonicShowsLumix() const
                                             QStringLiteral("DC-S5"));
     QCOMPARE(p.label, QStringLiteral("LUMIX"));
     QVERIFY(p.logoPath.contains(QStringLiteral("panasonic")));
+}
+
+// —— M5.4 数据源接线 ——
+
+namespace {
+// 构造用户覆盖层 JSON 文档
+QByteArray overlayJson(const QJsonObject &overrideBrand,
+                       const QJsonObject &extraBrand,
+                       const QJsonObject &fallback)
+{
+    QJsonArray brands;
+    if (!overrideBrand.isEmpty())
+        brands.append(overrideBrand);
+    if (!extraBrand.isEmpty())
+        brands.append(extraBrand);
+    QJsonObject o;
+    o["schemaVersion"] = 1;
+    o["brands"] = brands;
+    if (!fallback.isEmpty())
+        o["fallback"] = fallback;
+    return QJsonDocument(o).toJson(QJsonDocument::Compact);
+}
+} // namespace
+
+// qrc brands.json（唯一准绳）与 C++ 内置表逐条一致——两处漂移即红
+//（内置表仅作 JSON 损坏时的应急兜底，同步靠本测试强制）
+void TestBrand::jsonResourceMatchesBuiltin() const
+{
+    QFile f(QStringLiteral(":/brands/brands.json"));
+    QVERIFY2(f.open(QIODevice::ReadOnly), qPrintable(f.fileName()));
+    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+    QVERIFY(doc.isObject());
+
+    const QList<BrandDef> builtin = BrandRegistry::builtin();
+    QHash<QString, BrandDef> byValue;
+    for (const BrandDef &b : builtin)
+        byValue.insert(b.value, b);
+
+    const QJsonArray arr = doc.object()["brands"].toArray();
+    QCOMPARE(arr.size(), builtin.size());
+    for (const QJsonValue &v : arr) {
+        const QJsonObject o = v.toObject();
+        const QString value = o["value"].toString();
+        QVERIFY2(byValue.contains(value), qPrintable(value));
+        const BrandDef &b = byValue[value];
+        QCOMPARE(o["label"].toString(), b.label);
+        QCOMPARE(o["logo"].toString(), b.logoPath);
+        QStringList aliases;
+        for (const QJsonValue &a : o["aliases"].toArray())
+            aliases.append(a.toString());
+        QCOMPARE(aliases, b.makeAliases);
+        QStringList prefixes;
+        for (const QJsonValue &p : o["modelPrefixes"].toArray())
+            prefixes.append(p.toString());
+        QCOMPARE(prefixes, b.modelPrefixes);
+    }
+
+    // fallback 条目 = others() 兜底
+    const QJsonObject fb = doc.object()["fallback"].toObject();
+    QCOMPARE(fb["value"].toString(),
+             BrandRegistry::others().value);
+    QCOMPARE(fb["logo"].toString(), BrandRegistry::others().logoPath);
+}
+
+// 用户覆盖层：同 value 整条替换（LUMIX 改展示文本）、新 value 追加
+//（自造品牌可识别）、fallback 可替换；重置后恢复内置语义
+void TestBrand::userOverlayOverridesAndExtends() const
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString overlay = dir.filePath("brands.json");
+
+    // 1) 同 value 覆盖：Panasonic label 改名 + logo 换备选
+    QJsonObject lumix;
+    lumix["value"] = QStringLiteral("Panasonic");
+    lumix["label"] = QStringLiteral("LUMIX S");
+    lumix["aliases"] = QJsonArray{ QStringLiteral("Panasonic"),
+                                   QStringLiteral("LUMIX") };
+    lumix["modelPrefixes"] = QJsonArray{ QStringLiteral("DC-"),
+                                         QStringLiteral("DMC-") };
+    lumix["logo"] = QStringLiteral(":/logos/camera/panasonic-logo2-1603-245.png");
+    // 2) 新 value 追加：别名直接命中（未收录相机的用户自救路径）
+    QJsonObject extra;
+    extra["value"] = QStringLiteral("YiCamera");
+    extra["label"] = QStringLiteral("Yi Camera");
+    extra["aliases"] = QJsonArray{ QStringLiteral("YI Technology") };
+    extra["modelPrefixes"] = QJsonArray{ QStringLiteral("YI-") };
+    extra["logo"] = QStringLiteral(":/logos/camera/others.png");
+    // 3) fallback 替换
+    QJsonObject fb;
+    fb["value"] = QStringLiteral("Unknown");
+    fb["label"] = QStringLiteral("Unknown");
+    fb["logo"] = QStringLiteral(":/logos/camera/others.png");
+
+    QFile f(overlay);
+    QVERIFY(f.open(QIODevice::WriteOnly));
+    f.write(overlayJson(lumix, extra, fb));
+    f.close();
+    BrandRegistry::setUserBrandsFile(overlay);
+
+    const BrandDef p = BrandRegistry::match(QStringLiteral("Panasonic"),
+                                            QStringLiteral("DC-S5"));
+    QCOMPARE(p.label, QStringLiteral("LUMIX S"));
+    QCOMPARE(p.logoPath,
+             QStringLiteral(":/logos/camera/panasonic-logo2-1603-245.png"));
+    QCOMPARE(BrandRegistry::match(QStringLiteral("YI TECHNOLOGY"),
+                                  QStringLiteral("YI-M1"))
+                 .value,
+             QStringLiteral("YiCamera"));
+    QCOMPARE(BrandRegistry::match(QStringLiteral("SomeRandomCam"),
+                                  QStringLiteral("XYZ-100"))
+                 .value,
+             QStringLiteral("Unknown"));
+
+    // 重置（还原缺省路径）→ 覆盖失效，内置语义恢复
+    BrandRegistry::setUserBrandsFile(QString());
+    QCOMPARE(BrandRegistry::match(QStringLiteral("Panasonic"),
+                                  QStringLiteral("DC-S5"))
+                 .label,
+             QStringLiteral("LUMIX"));
+    QCOMPARE(BrandRegistry::match(QStringLiteral("SomeRandomCam"),
+                                  QStringLiteral("XYZ-100"))
+                 .value,
+             QStringLiteral("Others"));
+}
+
+// 覆盖文件损坏：忽略并保持基底表工作（品牌识别零崩溃红线）
+void TestBrand::userOverlayCorruptIgnored() const
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString overlay = dir.filePath("bad.json");
+    QFile f(overlay);
+    QVERIFY(f.open(QIODevice::WriteOnly));
+    f.write("{ not valid json");
+    f.close();
+    BrandRegistry::setUserBrandsFile(overlay);
+    // 基底照常 + 兜底未被破坏
+    QCOMPARE(BrandRegistry::match(QStringLiteral("NIKON CORPORATION"),
+                                  QStringLiteral("NIKON D850"))
+                 .value,
+             QStringLiteral("Nikon"));
+    QCOMPARE(BrandRegistry::others().value, QStringLiteral("Others"));
+    // 空数组表同样视为损坏（识别必然全落 Others，无意义）
+    QFile f2(overlay);
+    QVERIFY(f2.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    f2.write(QJsonDocument(QJsonObject{ { "brands", QJsonArray{} } })
+                 .toJson(QJsonDocument::Compact));
+    f2.close();
+    BrandRegistry::setUserBrandsFile(overlay);
+    QCOMPARE(BrandRegistry::match(QStringLiteral("Panasonic"),
+                                  QStringLiteral("DC-S5"))
+                 .label,
+             QStringLiteral("LUMIX"));
+
+    BrandRegistry::setUserBrandsFile(QString());
 }
 
 // —— 评审回归 ——

@@ -8,6 +8,9 @@
         <file alias="around.json">resources/templates/around.json</file>
         <file alias="blur.json">resources/templates/blur.json</file>
     </qresource>
+    <qresource prefix="/brands">
+        <file alias="brands.json">resources/brands.json</file>
+    </qresource>
     <qresource prefix="/i18n">
         <file alias="app_zh_TW.qm">resources/i18n/app_zh_TW.qm</file>
         <file alias="app_en.qm">resources/i18n/app_en.qm</file>

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "description": "品牌识别表（02-技术设计 §4.6）。M2 阶段内置表（BrandRegistry.cpp）为准，本文件为 M5 Logo 管理器的读写格式规范；两处需保持同步，M5 起 JSON 成为唯一数据源。",
+  "description": "品牌识别表（02-技术设计 §4.6）。M5.4 起本文件（qrc）为唯一数据源，BrandRegistry.cpp 内置表仅作解析失败的应急兜底（两处同步由 test_brand::jsonResourceMatchesBuiltin 强制）。用户可在 %APPDATA%/<App>/brands.json 放置同格式覆盖层：同 value 整条替换、新 value 追加、fallback 可替换，重启生效。",
   "brands": [
     { "value": "Canon", "label": "Canon", "aliases": ["Canon"], "modelPrefixes": [], "logo": ":/logos/camera/Canon_1440_301.png" },
     { "value": "Nikon", "label": "Nikon", "aliases": ["Nikon"], "modelPrefixes": [], "logo": ":/logos/camera/Nikon-700-700.png" },
