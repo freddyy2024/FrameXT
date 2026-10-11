@@ -109,6 +109,9 @@ private:
     QTimer *m_toastTimer = nullptr;
     QString m_lastDir;                   // 最近导入目录（3.10 持久化）
     bool m_exitConfirmed = false;        // 语言切换自重启路径跳过退出确认
+    // 切换照片后待适配：新预览渲染完成时画布重置为适配居中（用户指令），
+    // 同文档重渲染（防抖/编辑）不重置、保持用户当前缩放平移
+    bool m_pendingFitView = false;
 };
 
 } // namespace fxt

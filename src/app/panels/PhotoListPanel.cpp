@@ -10,11 +10,13 @@
 #include <QListWidget>
 #include <QMenu>
 #include <QPainter>
+#include <QScrollBar>
 #include <QStyle>
 #include <QStyleOptionViewItem>
 #include <QStyledItemDelegate>
 #include <QToolButton>
 #include <QVBoxLayout>
+#include <QWheelEvent>
 
 #include "../Theme.h"
 
@@ -149,6 +151,10 @@ void PhotoListPanel::addPhoto(const QUuid &id, const QString &fileName,
     item->setToolTip(fileName);
     m_list->addItem(item);
     m_items.insert(id, item);
+    // 默认选中第一张（用户指令：导入后即展示该照片的预览与属性）；
+    // setCurrentItem 触发 currentItemChanged → currentRequested → 主窗口切换
+    if (!m_list->currentItem())
+        m_list->setCurrentItem(item);
     updateSummary();
 }
 
@@ -231,6 +237,18 @@ bool PhotoListPanel::eventFilter(QObject *watched, QEvent *event)
         QMetaObject::invokeMethod(this, &PhotoListPanel::updateItemHeights,
                                   Qt::QueuedConnection);
     }
+    // 滚轮 → 横向滚动（用户指令：列表是单行横向布局，垂直滚轮在此无意义；
+    // 一次滚轮 120 单位折半为 60px 步长，触摸板水平分量同样可用）
+    if (watched == m_list->viewport() && event->type() == QEvent::Wheel) {
+        auto *wheelEvent = static_cast<QWheelEvent *>(event);
+        QScrollBar *hbar = m_list->horizontalScrollBar();
+        if (hbar->maximum() > 0) {
+            const QPoint delta = wheelEvent->angleDelta();
+            const int step = delta.y() != 0 ? delta.y() : delta.x();
+            hbar->setValue(hbar->value() - step / 2);
+        }
+        return true;
+    }
     return QWidget::eventFilter(watched, event);
 }
 
@@ -248,17 +266,16 @@ void PhotoListPanel::updateSummary()
         m_summary->setText(tr("拖入照片或点击选择"));
         return;
     }
-    const int currentRow = m_list->currentItem()
-                               ? m_list->currentItem()->listWidget()->row(
-                                     m_list->currentItem()) + 1
-                               : 0;
-    QString currentName;
-    if (m_list->currentItem())
-        currentName = m_list->currentItem()->data(Qt::UserRole + 1).toString();
+    // 未选中照片时不显示状态信息（用户指令）
+    QListWidgetItem *current = m_list->currentItem();
+    if (!current) {
+        m_summary->clear();
+        return;
+    }
     m_summary->setText(tr("共 %1 张 · 当前第 %2 张（%3）")
                            .arg(total)
-                           .arg(currentRow)
-                           .arg(currentName));
+                           .arg(m_list->row(current) + 1)
+                           .arg(current->data(Qt::UserRole + 1).toString()));
 }
 
 void PhotoListPanel::showContextMenu(const QPoint &pos)

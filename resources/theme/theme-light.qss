@@ -91,6 +91,30 @@ QToolButton#captionClose:pressed {
     color: #FFFFFF;
 }
 
+/* ---------- 图标按钮（工具条/面板标题共用 #toolGlyph） ---------- */
+/* 用户指令：hover 不出现边框，以颜色变化 + 手型光标（代码设置）反馈 */
+QToolButton#toolGlyph {
+    background: transparent;
+    border: none;
+    border-radius: 5px;
+    color: #5A6068;
+    padding: 2px 5px;
+}
+
+QToolButton#toolGlyph:hover {
+    background: transparent;
+    border: none;
+    color: #6C5CE7;
+}
+
+QToolButton#toolGlyph:pressed {
+    color: #5B4BD5;
+}
+
+QToolButton#toolGlyph:disabled {
+    color: #C3C8CF;
+}
+
 /* ---------- 面板卡片 ---------- */
 #card {
     background: #FFFFFF;

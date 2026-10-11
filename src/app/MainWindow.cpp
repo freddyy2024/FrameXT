@@ -284,10 +284,17 @@ void MainWindow::buildUi()
                 refreshBasicInfo();
                 refreshWatermarkPanel();
                 m_canvas->setSelectedElement(QUuid());
+                // 切图后首次渲染完成时重置为适配居中（用户指令：位置不
+                // 沿用上一张）；此处预览还是上一张的图，等 previewUpdated
+                m_pendingFitView = true;
             });
     connect(m_project, &ProjectController::previewUpdated, this,
             [this](const QImage &image) {
                 m_canvas->setPreview(image);
+                if (m_pendingFitView) {
+                    m_pendingFitView = false;
+                    m_canvas->fitToWindow();   // 新照片：垂直居中 + 适配
+                }
                 // 渲染完成同步元素布局（画布命中/拖动/就地编辑数据源）
                 m_canvas->setElementLayouts(m_project->elementLayouts());
             });
@@ -509,10 +516,13 @@ QWidget *MainWindow::buildCenterPanel()
             &PreviewCanvas::fitToWindow);
     tb->addWidget(fitButton);
 
-    auto *zoom100Button = createGlyphButton(toolbar,
-                                            QStringLiteral("toolGlyph"),
-                                            0xE9A5,   // ActualSize
-                                            tr("按原始尺寸显示（100%）"));
+    // 「1:1」原始尺寸按钮：Segoe 图标字体不含该语义字形（候选 E9A5 经
+    // cmap 解析 + 离屏渲染实测在两套字体中均无映射，按钮空白），
+    // 改用图像软件通用的 1:1 文字，样式与相邻图标按钮一致
+    auto *zoom100Button = createTextToolButton(toolbar,
+                                               QStringLiteral("toolGlyph"),
+                                               QStringLiteral("1:1"),
+                                               tr("按原始尺寸显示（100%）"));
     connect(zoom100Button, &QToolButton::clicked, m_canvas,
             &PreviewCanvas::setZoom100);
     tb->addWidget(zoom100Button);
