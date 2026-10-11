@@ -103,7 +103,6 @@ private:
     PreviewCanvas *m_canvas = nullptr;
     QLabel *m_canvasHint = nullptr;      // 底部工具条提示
     QComboBox *m_templateCombo = nullptr;
-    QToolButton *m_compareButton = nullptr;
     QLabel *m_importSummary = nullptr;   // 左栏导入状态行
     ExportPanel *m_exportPanel = nullptr;   // 导出表单（§3.3）
     QLabel *m_toast = nullptr;           // 批量操作结果提示（3s 自动消失）

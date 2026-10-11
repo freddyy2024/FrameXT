@@ -18,6 +18,7 @@ constexpr qreal kSnapThreshold = 8.0;    // 吸附命中距离（视口 px）
 constexpr qreal kDragDeadZone = 3.0;     // 位移小于此值视为点击（不提交拖动）
 constexpr int kCapsuleWidth = 168;       // "已隐藏水印"胶囊
 constexpr int kCapsuleHeight = 28;
+constexpr int kPanEdge = 24;             // 平移边界钳制：任一边至少留 24px 在视口内
 
 // Qt 6 无 QColor(const QColor&, alpha) 构造，自绘交互层的半透明强调色在此生成
 QColor accentWithAlpha(int alpha)
@@ -80,6 +81,14 @@ QRectF PreviewCanvas::imageRect() const
     return QRectF(m_panOffset, sz * m_zoom);
 }
 
+void PreviewCanvas::centerImage()
+{
+    if (m_image.isNull())
+        return;
+    m_panOffset = QPointF((width() - m_image.width() * m_zoom) / 2.0,
+                          (height() - m_image.height() * m_zoom) / 2.0);
+}
+
 void PreviewCanvas::fitToWindow()
 {
     if (m_image.isNull())
@@ -90,32 +99,30 @@ void PreviewCanvas::fitToWindow()
     if (maxEdge <= 0 || avail <= 0)
         return;
     m_zoom = qBound(kMinZoom, avail / maxEdge, kMaxZoom);
-    m_panOffset = QPointF((width() - m_image.width() * m_zoom) / 2.0,
-                          (height() - m_image.height() * m_zoom) / 2.0);
+    centerImage();
     emit zoomChanged(m_zoom);
     update();
 }
 
 void PreviewCanvas::setZoom100()
 {
-    setZoomAt(1.0, rect().center());
-    update();
+    setZoomAt(1.0);
 }
 
 void PreviewCanvas::setZoom(qreal zoom)
 {
-    setZoomAt(zoom, rect().center());
+    setZoomAt(zoom);
 }
 
-void PreviewCanvas::setZoomAt(qreal zoom, const QPointF &anchorPoint)
+// 中心锚缩放 + 缩放即回中：图像中心恒对齐视口中心（用户指令）——
+// 拖动偏移不跨缩放保留，滚轮一动就回居中，图片不会跑出视口
+void PreviewCanvas::setZoomAt(qreal zoom)
 {
     const qreal newZoom = qBound(kMinZoom, zoom, kMaxZoom);
     if (qFuzzyCompare(newZoom, m_zoom))
         return;
-    // 锚点缩放：锚点下的图像坐标在缩放前后保持重合
-    const QPointF imagePos = (anchorPoint - m_panOffset) / m_zoom;
     m_zoom = newZoom;
-    m_panOffset = anchorPoint - imagePos * m_zoom;
+    centerImage();
     emit zoomChanged(m_zoom);
     update();
 }
@@ -302,7 +309,7 @@ void PreviewCanvas::wheelEvent(QWheelEvent *event)
     if (dy == 0)
         return;   // 横向滚动（触控板双指水平）不触发缩放
     const qreal step = dy > 0 ? 1.2 : 1.0 / 1.2;
-    setZoomAt(m_zoom * step, event->position());
+    setZoomAt(m_zoom * step);   // 中心锚，缩放即回中
 }
 
 void PreviewCanvas::mousePressEvent(QMouseEvent *event)
@@ -331,7 +338,6 @@ void PreviewCanvas::mousePressEvent(QMouseEvent *event)
 
     if (event->button() == Qt::LeftButton) {
         // 纯看图态（水印隐藏）：元素不可见则不可交互
-        // （本就无水印，无需对比原图；也不发 compare——松开信号会解除隐藏态）
         if (m_watermarkHidden)
             return;
         const QPointF imgPos = toImagePos(event->pos());
@@ -353,21 +359,31 @@ void PreviewCanvas::mousePressEvent(QMouseEvent *event)
             update();
             return;
         }
-        // 空白区：取消选中 + 按住对比原图（§9-D）
+        // 空白区：取消选中 + 开始平移（左键拖动移动视图，用户指令；
+        // 交互替代原「按住对比原图」，对比原图功能已整体移除）
         if (!m_selectedId.isNull()) {
             m_selectedId = QUuid();
             emit elementSelected(QUuid());
             update();
         }
-        m_comparePressed = true;
-        emit compareOriginalPressed(true);
+        m_panning = true;
+        m_panStart = event->pos();
+        setCursor(Qt::ClosedHandCursor);
     }
 }
 
 void PreviewCanvas::mouseMoveEvent(QMouseEvent *event)
 {
     if (m_panning) {
-        m_panOffset += QPointF(event->pos() - m_panStart);
+        QPointF offset = m_panOffset + QPointF(event->pos() - m_panStart);
+        // 边界钳制：图片不允许完全拖出视口（任一边至少留 24px 可见）
+        const qreal imgW = m_image.width() * m_zoom;
+        const qreal imgH = m_image.height() * m_zoom;
+        offset.setX(qBound(qreal(kPanEdge) - imgW, offset.x(),
+                           qreal(width() - kPanEdge)));
+        offset.setY(qBound(qreal(kPanEdge) - imgH, offset.y(),
+                           qreal(height() - kPanEdge)));
+        m_panOffset = offset;
         m_panStart = event->pos();
         update();
         return;
@@ -424,21 +440,17 @@ void PreviewCanvas::mouseMoveEvent(QMouseEvent *event)
         return;
     }
 
-    // hover 高亮
+    // hover 光标：空白 = 抓手（提示可拖动平移），元素 = 移动
     const QUuid hover = hitTest(toImagePos(event->pos()));
     if (hover != m_hoverId) {
         m_hoverId = hover;
-        setCursor(hover.isNull() ? Qt::ArrowCursor : Qt::SizeAllCursor);
+        setCursor(hover.isNull() ? Qt::OpenHandCursor : Qt::SizeAllCursor);
         update();
     }
 }
 
 void PreviewCanvas::mouseReleaseEvent(QMouseEvent *event)
 {
-    if (event->button() == Qt::LeftButton && m_comparePressed) {
-        m_comparePressed = false;
-        emit compareOriginalPressed(false);
-    }
     if (m_dragging) {
         m_dragging = false;
         m_guideV = QLineF();
@@ -460,7 +472,7 @@ void PreviewCanvas::mouseReleaseEvent(QMouseEvent *event)
         && (event->button() == Qt::MiddleButton
             || event->button() == Qt::LeftButton)) {
         m_panning = false;
-        setCursor(m_spacePan ? Qt::OpenHandCursor : Qt::ArrowCursor);
+        setCursor(Qt::OpenHandCursor);
     }
 }
 
@@ -560,7 +572,7 @@ void PreviewCanvas::keyReleaseEvent(QKeyEvent *event)
     if (event->key() == Qt::Key_Space && !event->isAutoRepeat()) {
         m_spacePan = false;
         if (!m_panning)
-            setCursor(Qt::ArrowCursor);
+            setCursor(Qt::OpenHandCursor);   // 空白常态即抓手（可平移）
     }
     QWidget::keyReleaseEvent(event);
 }

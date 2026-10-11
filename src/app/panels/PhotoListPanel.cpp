@@ -1,5 +1,7 @@
 #include "panels/PhotoListPanel.h"
 
+#include "../GlyphButton.h"
+
 #include <QApplication>
 #include <QEvent>
 #include <QHBoxLayout>
@@ -7,7 +9,7 @@
 #include <QLabel>
 #include <QListWidget>
 #include <QMenu>
-#include <QPushButton>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 #include "../Theme.h"
@@ -29,19 +31,23 @@ PhotoListPanel::PhotoListPanel(QWidget *parent)
     layout->setContentsMargins(12, 4, 12, 8);
     layout->setSpacing(4);
 
-    // —— 标题行 ——
+    // —— 标题行：标题 + 状态行（右侧浅色）+ 撤销/清空图标按钮 ——
     auto *header = new QHBoxLayout;
-    m_summary = new QLabel(tr("照片列表"));
-    m_summary->setObjectName(QStringLiteral("panelTitle"));
+    auto *title = new QLabel(tr("照片列表"));
+    title->setObjectName(QStringLiteral("panelTitle"));
+    header->addWidget(title);
+    m_summary = new QLabel;
+    m_summary->setObjectName(QStringLiteral("panelCount"));   // 浅色非粗体
     header->addWidget(m_summary);
     header->addStretch();
-    m_undoButton = new QPushButton(tr("撤销"));
-    m_undoButton->setObjectName(QStringLiteral("secondaryButton"));
+    m_undoButton = createGlyphButton(this, QStringLiteral("toolGlyph"),
+                                     0xE7A7,   // Undo
+                                     tr("撤销上一步（Ctrl+Z）"));
     m_undoButton->setEnabled(false);
-    m_undoButton->setToolTip(tr("Ctrl+Z 可撤销"));
     header->addWidget(m_undoButton);
-    m_clearButton = new QPushButton(tr("清空"));
-    m_clearButton->setObjectName(QStringLiteral("secondaryButton"));
+    m_clearButton = createGlyphButton(this, QStringLiteral("toolGlyph"),
+                                      0xE74D,   // Delete
+                                      tr("清空列表"));
     header->addWidget(m_clearButton);
     layout->addLayout(header);
 
@@ -75,19 +81,21 @@ PhotoListPanel::PhotoListPanel(QWidget *parent)
             &PhotoListPanel::showContextMenu);
     layout->addWidget(m_list, 1);
 
-    connect(m_undoButton, &QPushButton::clicked, this,
+    connect(m_undoButton, &QToolButton::clicked, this,
             &PhotoListPanel::undoRequested);
-    connect(m_clearButton, &QPushButton::clicked, this,
+    connect(m_clearButton, &QToolButton::clicked, this,
             &PhotoListPanel::clearRequested);
 }
 
 void PhotoListPanel::addPhoto(const QUuid &id, const QString &fileName,
                               const QImage &thumbnail)
 {
-    auto *item = new QListWidgetItem(
-        QIcon(QPixmap::fromImage(thumbnail)), fileName);
+    // 缩略图不显示文件名（用户指令）：名字进 tooltip 与状态行数据
+    auto *item = new QListWidgetItem(QIcon(QPixmap::fromImage(thumbnail)),
+                                     QString());
     item->setData(Qt::UserRole, id);
-    item->setSizeHint(QSize(kItemWidth, kThumbSize.height() + 20));
+    item->setData(Qt::UserRole + 1, fileName);
+    item->setSizeHint(QSize(kItemWidth, kThumbSize.height() + 8));
     item->setToolTip(fileName);
     m_list->addItem(item);
     m_items.insert(id, item);
@@ -161,7 +169,7 @@ void PhotoListPanel::updateSummary()
                                : 0;
     QString currentName;
     if (m_list->currentItem())
-        currentName = m_list->currentItem()->text();
+        currentName = m_list->currentItem()->data(Qt::UserRole + 1).toString();
     m_summary->setText(tr("共 %1 张 · 当前第 %2 张（%3）")
                            .arg(total)
                            .arg(currentRow)

@@ -2,6 +2,7 @@
 
 #include <QFileInfo>
 #include <QFutureWatcher>
+#include <QImageReader>
 #include <QtConcurrent/QtConcurrentMap>
 
 #include "metadata/BrandRegistry.h"
@@ -23,8 +24,19 @@ ImportItem importOne(const QString &path)
     item.doc.id = QUuid::createUuid();
     item.doc.sourcePath = path;
 
-    // 1) 解码（autoTransform 按 Orientation 转向）+ 缩略图
-    const auto decoded = PhotoDecoder::decode(path, 1.0);
+    // 1) 解码 + 缩略图——缩放解码（低配机内存优化）：
+    //    先只读头拿尺寸算缩放比，PhotoDecoder 走 QImageReader setScaledSize，
+    //    JPEG 经 libjpeg DCT 档位（1/2、1/4、1/8）降采样解码，45MP 单张
+    //    解码缓冲从 ~180MB 降到 ~11MB，多张并行导入的瞬时峰值同步下降。
+    //    非 JPEG 格式插件不支持时回落全尺寸解码 + CPU 缩放（不劣于旧行为）。
+    const QSize stored = QImageReader(path).size();
+    qreal thumbScale = 1.0;
+    if (stored.isValid()) {
+        const int maxEdge = qMax(stored.width(), stored.height());
+        if (maxEdge > kThumbEdge)
+            thumbScale = qreal(kThumbEdge) / maxEdge;
+    }
+    const auto decoded = PhotoDecoder::decode(path, thumbScale);
     if (!decoded.ok) {
         item.error = decoded.error.isEmpty()
                          ? QStringLiteral("无法解码图像")
@@ -33,7 +45,8 @@ ImportItem importOne(const QString &path)
     }
     item.doc.meta.pixelSize = decoded.originalSize;
     item.doc.meta.format = decoded.format;
-    // 缩略图以长边等比缩放（KeepAspectRatio 不裁剪），列表项内居中完整显示
+    // 缩略图以长边等比缩放（KeepAspectRatio 不裁剪），列表项内居中完整显示；
+    // scaled 对已达标尺寸走快速路径（零成本）
     item.thumbnail = decoded.image.scaled(kThumbEdge, kThumbEdge,
                                           Qt::KeepAspectRatio,
                                           Qt::SmoothTransformation);

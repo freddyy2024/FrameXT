@@ -1,12 +1,14 @@
 #include "panels/BasicInfoPanel.h"
 
+#include "../GlyphButton.h"
+
 #include <QApplication>
 #include <QClipboard>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QPushButton>
 #include <QScrollArea>
+#include <QStackedWidget>
 #include <QVBoxLayout>
 
 namespace fxt {
@@ -16,31 +18,46 @@ constexpr int kLabelColumnWidth = 88;
 } // namespace
 
 BasicInfoPanel::BasicInfoPanel(QWidget *parent)
-    : QWidget(parent)
+    : QFrame(parent)
 {
-    setObjectName(QStringLiteral("basicInfoPanel"));
+    // card 结构与导入导出面板（MainWindow::createCard）一致：
+    // 白底圆角卡 + 32 高内部标题栏（标题 + 复制图标按钮）
+    setObjectName(QStringLiteral("card"));
 
     auto *outer = new QVBoxLayout(this);
-    outer->setContentsMargins(12, 4, 12, 8);
-    outer->setSpacing(4);
+    outer->setContentsMargins(0, 0, 0, 0);
+    outer->setSpacing(0);
 
-    // —— 标题行 ——
-    auto *header = new QHBoxLayout;
-    m_title = new QLabel(tr("基础属性"));
-    m_title->setObjectName(QStringLiteral("panelTitle"));
-    header->addWidget(m_title);
-    header->addStretch();
-    auto *copyButton = new QPushButton(tr("复制"));
-    copyButton->setObjectName(QStringLiteral("secondaryButton"));
-    copyButton->setToolTip(tr("复制全部属性文本"));
-    connect(copyButton, &QPushButton::clicked, this,
+    // —— 标题栏（面板内部）——
+    auto *header = new QWidget(this);
+    header->setObjectName(QStringLiteral("panelHeader"));
+    header->setFixedHeight(32);
+    auto *headerLayout = new QHBoxLayout(header);
+    headerLayout->setContentsMargins(12, 0, 8, 0);
+    auto *title = new QLabel(tr("基础属性"), header);
+    title->setObjectName(QStringLiteral("panelTitle"));
+    headerLayout->addWidget(title);
+    headerLayout->addStretch();
+    auto *copyButton = createGlyphButton(header, QStringLiteral("toolGlyph"),
+                                         0xE8C8,   // Copy
+                                         tr("复制全部属性文本"));
+    connect(copyButton, &QToolButton::clicked, this,
             &BasicInfoPanel::copyAll);
-    header->addWidget(copyButton);
-    outer->addLayout(header);
+    headerLayout->addWidget(copyButton);
+    outer->addWidget(header);
 
-    // —— 内容卡片（可滚动）——
+    // —— 主体：空态提示 / 参数表 双页切换 ——
+    m_body = new QStackedWidget(this);
+    m_body->setContentsMargins(0, 0, 0, 0);
+
+    auto *emptyHint = new QLabel(tr("导入照片后，此处显示拍摄参数"), m_body);
+    emptyHint->setObjectName(QStringLiteral("panelCount"));
+    emptyHint->setAlignment(Qt::AlignCenter);
+    emptyHint->setWordWrap(true);
+    m_body->addWidget(emptyHint);
+
+    // 参数表（可滚动；无边框融入卡片）
     auto *content = new QWidget;
-    content->setObjectName(QStringLiteral("card"));
     m_grid = new QGridLayout(content);
     m_grid->setContentsMargins(12, 10, 12, 10);
     m_grid->setHorizontalSpacing(8);
@@ -56,7 +73,10 @@ BasicInfoPanel::BasicInfoPanel(QWidget *parent)
     scroll->setWidget(content);
     scroll->setFrameShape(QFrame::NoFrame);
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    outer->addWidget(scroll, 1);
+    m_body->addWidget(scroll);
+
+    m_body->setCurrentIndex(0);   // 默认空态
+    outer->addWidget(m_body, 1);
 }
 
 QLabel *BasicInfoPanel::makeValueLabel()
@@ -150,6 +170,7 @@ void BasicInfoPanel::setFields(const QHash<QString, QString> &fields,
         return;   // 结构漂移防御（buildRows 与 keys 必须同步）
     for (int i = 0; i < expected; ++i)
         setRow(keys[i], QString(), m_rows[i].value, fields, hasPhoto);
+    m_body->setCurrentIndex(hasPhoto ? 1 : 0);   // 有照片显示参数表，否则空态提示
 }
 
 void BasicInfoPanel::clearFields()

@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 
 #include "AppInfo.h"
+#include "GlyphButton.h"
 #include "Theme.h"
 #include "TitleBar.h"
 #include "canvas/PreviewCanvas.h"
@@ -345,8 +346,6 @@ void MainWindow::buildUi()
     });
 
     // —— 画布交互接线 ——
-    connect(m_canvas, &PreviewCanvas::compareOriginalPressed, m_project,
-            &ProjectController::setWatermarkHidden);
     connect(m_canvas, &PreviewCanvas::elementSelected, m_watermarkPanel,
             &WatermarkPanel::setSelected);
     connect(m_canvas, &PreviewCanvas::elementMoved, m_project,
@@ -495,7 +494,7 @@ QWidget *MainWindow::buildCenterPanel()
     m_canvas = new PreviewCanvas(panel);
     layout->addWidget(m_canvas, 1);
 
-    // 底部工具条（高 36：适配 | 100% | 缩放滑杆 | 对比原图）
+    // 底部工具条（高 36：适配 | 100% | 缩放滑杆；图标按钮走 Segoe 字形）
     auto *toolbar = new QWidget(panel);
     toolbar->setObjectName("previewToolbar");
     toolbar->setFixedHeight(Theme::kToolstripHeight);
@@ -503,15 +502,18 @@ QWidget *MainWindow::buildCenterPanel()
     tb->setContentsMargins(12, 4, 12, 4);
     tb->setSpacing(8);
 
-    auto *fitButton = new QPushButton(tr("适配"), toolbar);
-    fitButton->setObjectName("secondaryButton");
-    connect(fitButton, &QPushButton::clicked, m_canvas,
+    auto *fitButton = createGlyphButton(toolbar, QStringLiteral("toolGlyph"),
+                                        0xE9A6,   // FitPage
+                                        tr("适配窗口"));
+    connect(fitButton, &QToolButton::clicked, m_canvas,
             &PreviewCanvas::fitToWindow);
     tb->addWidget(fitButton);
 
-    auto *zoom100Button = new QPushButton("100%", toolbar);
-    zoom100Button->setObjectName("secondaryButton");
-    connect(zoom100Button, &QPushButton::clicked, m_canvas,
+    auto *zoom100Button = createGlyphButton(toolbar,
+                                            QStringLiteral("toolGlyph"),
+                                            0xE9A5,   // ActualSize
+                                            tr("按原始尺寸显示（100%）"));
+    connect(zoom100Button, &QToolButton::clicked, m_canvas,
             &PreviewCanvas::setZoom100);
     tb->addWidget(zoom100Button);
 
@@ -538,19 +540,8 @@ QWidget *MainWindow::buildCenterPanel()
             });
     tb->addWidget(percent);
 
-    m_compareButton = new QToolButton(toolbar);
-    m_compareButton->setText(tr("对比原图"));
-    m_compareButton->setObjectName("secondaryButton");
-    m_compareButton->setToolTip(tr("按住临时隐藏边框水印查看原片"));
-    m_compareButton->setCheckable(false);
-    // 按住临时隐藏水印（§9-D）；画布内左键按下走同一控制器状态
-    connect(m_compareButton, &QToolButton::pressed, m_project,
-            [this] { m_project->setWatermarkHidden(true); });
-    connect(m_compareButton, &QToolButton::released, m_project,
-            [this] { m_project->setWatermarkHidden(false); });
-    tb->addWidget(m_compareButton);
     tb->addStretch();
-    m_canvasHint = new QLabel(tr("空格拖拽平移 · 滚轮缩放"), toolbar);
+    m_canvasHint = new QLabel(tr("左键拖动平移 · 滚轮缩放"), toolbar);
     m_canvasHint->setObjectName("panelCount");
     tb->addWidget(m_canvasHint);
     layout->addWidget(toolbar);

@@ -15,9 +15,9 @@ class QLineEdit;
 namespace fxt {
 
 // 预览画布（开发计划 3.4 / 04-UI §3.4）：
-// 棋盘格底 + 圆角卡片内渲染图显示；滚轮缩放（光标锚 0.1–8×）、
-// 空格/中键平移、适配窗口 / 100%、对比原图（按住临时隐藏水印——
-// 由外部切 ProjectController::setWatermarkHidden，此处只发信号）。
+// 棋盘格底 + 圆角卡片内渲染图显示；中心锚缩放（0.1–8×，缩放即回中——
+// 图像中心恒对齐视口中心，用户指令）、左键空白拖动平移（边界钳制：
+// 图片不允许完全拖出视口）、空格/中键平移、适配窗口 / 100%。
 // 编辑态：元素单击选中（#6C5CE7 手柄框）→ 拖动移动 + 参考线吸附
 // （中心/三分线/画布边），松手一次提交（一次撤销快照）；
 // 双击文本元素就地编辑；Del/右键菜单走信号由外部处置。
@@ -32,7 +32,7 @@ public:
     void setEmpty(bool empty);
     void fitToWindow();
     void setZoom100();
-    // 以视口中心为锚点的缩放（工具条滑杆联动用）
+    // 中心锚缩放（工具条滑杆联动用）
     void setZoom(qreal zoom);
     qreal zoom() const { return m_zoom; }
 
@@ -45,7 +45,6 @@ public:
 
 signals:
     void zoomChanged(qreal zoom);
-    void compareOriginalPressed(bool pressed);   // 对比原图按住/松开
     void elementSelected(const QUuid &id);       // 空 = 取消选中
     // 拖动提交：offset 增量（相对单位，画布尺寸归一）
     void elementMoved(const QUuid &id, const QPointF &offsetDelta);
@@ -68,7 +67,8 @@ protected:
 
 private:
     QRectF imageRect() const;   // 当前缩放/平移下图像在视口中的矩形
-    void setZoomAt(qreal zoom, const QPointF &anchorPoint);
+    void setZoomAt(qreal zoom);   // 中心锚缩放 + 回中
+    void centerImage();           // 图像中心对齐视口中心
     // 视口坐标 → 图像像素坐标
     QPointF toImagePos(const QPointF &viewPos) const;
     QUuid hitTest(const QPointF &imagePos) const;
@@ -95,7 +95,6 @@ private:
     QRectF m_dragRect;             // 拖动中的元素矩形（吸附修正后）
     QLineF m_guideV;               // 吸附参考线（图像坐标；null = 不显示）
     QLineF m_guideH;
-    bool m_comparePressed = false; // 空白区按住 = 对比原图
 
     // —— 就地编辑 ——
     QUuid m_editingId;

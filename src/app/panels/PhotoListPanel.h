@@ -8,7 +8,7 @@
 class QLabel;
 class QListWidget;
 class QListWidgetItem;
-class QPushButton;
+class QToolButton;
 
 namespace fxt {
 
@@ -43,9 +43,9 @@ private:
     void updateSummary();
     void showContextMenu(const QPoint &pos);
 
-    QLabel *m_summary = nullptr;
-    QPushButton *m_undoButton = nullptr;
-    QPushButton *m_clearButton = nullptr;
+    QLabel *m_summary = nullptr;       // 标题右侧状态行（浅色非粗体）
+    QToolButton *m_undoButton = nullptr;
+    QToolButton *m_clearButton = nullptr;
     QListWidget *m_list = nullptr;
     QHash<QUuid, QListWidgetItem *> m_items;   // row 顺序即导入顺序
 };
