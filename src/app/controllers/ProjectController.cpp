@@ -265,6 +265,17 @@ void ProjectController::setTemplateId(const QString &templateId)
     scheduleRender();
 }
 
+void ProjectController::setTemplateParam(const QString &key, double value)
+{
+    PhotoDocument *doc = current();
+    if (!doc)
+        return;
+    doc->templateState.templateParams.insert(key, value);
+    // 只影响渲染几何/模糊（不动元素树），documentChanged 的面板全刷
+    // 没有必要；防抖渲染足够，UI 滑杆自身是值来源无需回填
+    scheduleRender();
+}
+
 void ProjectController::moveElement(const QUuid &elementId, Anchor anchor,
                                     const QPointF &offset)
 {
@@ -574,11 +585,12 @@ RenderRequest ProjectController::renderRequest(const PhotoDocument &doc) const
 
 CanvasPlan ProjectController::canvasPlanFor(const PhotoDocument &doc) const
 {
-    // 与 RenderPipeline S2 同源：预览缩放尺寸 → 画布 plan
+    // 与 RenderPipeline S2 同源：预览缩放尺寸 → 画布 plan（模板参数同步）
     const qreal scale = previewScaleFor(doc.meta.pixelSize);
     const QSize scaled(qRound(doc.meta.pixelSize.width() * scale),
                        qRound(doc.meta.pixelSize.height() * scale));
-    return CanvasGeometry::plan(doc.templateState.templateId, scaled);
+    return CanvasGeometry::plan(doc.templateState.templateId, scaled,
+                                doc.templateState.templateParams);
 }
 
 QList<QPair<QUuid, ElementLayout>> ProjectController::elementLayouts()

@@ -4,6 +4,7 @@
 add_library(framext_core STATIC
     AppInfo.cpp
     model/ModelIo.cpp
+    model/TemplateSpec.cpp
     metadata/BrandRegistry.cpp
     metadata/ExifFormatter.cpp
     metadata/FieldRegistry.cpp

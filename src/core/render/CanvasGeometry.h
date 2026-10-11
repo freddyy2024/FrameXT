@@ -2,6 +2,7 @@
 
 #include <QRect>
 #include <QSize>
+#include <QVariantMap>
 
 namespace fxt {
 
@@ -31,7 +32,16 @@ bool isBuiltin(const QString &templateId);
 //  bottom: H' = H + exH            （exH = 0.09W 横图 / 0.10W 竖图）
 //  around: W' = W + 4%W; H' = H + exH + 2%W; 原图 inset 2%W
 //  blur:   画布 = 原图 + L/R 8%W + T exH/2 + B exH+1%H；圆角 = W/60
+// M5.1 参数化：params 为 TemplateState::templateParams（参数键约定见
+// TemplateSpec.cpp），缺失/越界的键回落内置常量——空 params 与旧版逐像素一致。
+CanvasPlan plan(const QString &templateId, const QSize &photoSize,
+                const QVariantMap &params);
+// 兼容入口（无参数 = 全默认值；既有测试/黄金图走此签名）
 CanvasPlan plan(const QString &templateId, const QSize &photoSize);
+
+// 参数读取约定：缺失或类型不符回落 fallback（越界不钳制——钳制是
+// UI 滑杆的职责，渲染层保持对模板包参数的宽容）
+qreal paramOf(const QVariantMap &params, const char *key, qreal fallback);
 
 } // namespace CanvasGeometry
 } // namespace fxt

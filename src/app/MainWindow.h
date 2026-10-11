@@ -8,6 +8,7 @@
 #include "export/ExportEngine.h"
 
 class QComboBox;
+class QSlider;
 class QSplitter;
 class QTimer;
 class QToolButton;
@@ -68,6 +69,7 @@ private:
     void refreshBasicInfo();
     void refreshWatermarkPanel();
     void syncTemplateCombo();   // 模板下拉回同步（切照片/撤销后）
+    void syncTemplateSliders();   // 高频模板参数滑杆回同步（M5.1）
     void runBatchApply(ApplyScope scope);   // §5.5 确认框+应用+toast
     void showElementContextMenu(const QUuid &elementId, const QPoint &globalPos);
     void showToast(const QString &text);
@@ -104,6 +106,12 @@ private:
     QToolButton *m_undoButton = nullptr;   // 画布工具条撤销（用户指令：不在列表模块）
     QLabel *m_canvasHint = nullptr;      // 底部工具条提示
     QComboBox *m_templateCombo = nullptr;
+    QSlider *m_bandSlider = nullptr;      // 高频参数：信息带高度（bottom/around）
+    QSlider *m_cornerSlider = nullptr;    // 高频参数：圆角（blur）
+    QSlider *m_blurSlider = nullptr;      // 高频参数：模糊强度（blur）
+    QLabel *m_bandValue = nullptr;
+    QLabel *m_cornerValue = nullptr;
+    QLabel *m_blurValue = nullptr;
     QLabel *m_importSummary = nullptr;   // 左栏导入状态行
     ExportPanel *m_exportPanel = nullptr;   // 导出表单（§3.3）
     QLabel *m_toast = nullptr;           // 批量操作结果提示（3s 自动消失）

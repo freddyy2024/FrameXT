@@ -127,7 +127,8 @@ void boxBlur(QImage &img, const int radius, const int passes = 2)
 }
 
 // blur 模板：原图 downscale(≤512) → boxBlur×2 → 放大铺满画布（§4.4）
-QImage blurBackdrop(const CanvasPlan &plan, const QImage &photo)
+QImage blurBackdrop(const CanvasPlan &plan, const QImage &photo,
+                    qreal blurStrength)
 {
     const qreal shrink =
         qMin(1.0, 512.0 / qreal(qMax(plan.canvasSize.width(), plan.canvasSize.height())));
@@ -139,11 +140,13 @@ QImage blurBackdrop(const CanvasPlan &plan, const QImage &photo)
                                 Qt::SmoothTransformation)
                        .convertToFormat(QImage::Format_ARGB32_Premultiplied);
 
-    // σ=W/20 换算到小图：半径 = (W/20) × shrink，两轮 box ≈ 高斯。
+    // σ=W/20 × blurStrength（M5.1 参数化，默认 1.0 = 原视觉常量）换算到
+    // 小图：半径 = σ × shrink，两轮 box ≈ 高斯。
     // 半径上限按小图短边钳制（window=2r+1 不得超过短边-1）：极端宽高比
     // （如 10000×100 长截图）下小图宽可缩到 2px，超限窗口会使滑窗累加
     // 除数失配、背景整体变暗约 1/9
-    const qreal sigmaSmall = (plan.canvasSize.width() / 20.0) * shrink;
+    const qreal sigmaSmall =
+        (plan.canvasSize.width() / 20.0) * blurStrength * shrink;
     const int radius = qBound(1, qRound(sigmaSmall), 32);
     const int shortEdge = qMin(smallSize.width(), smallSize.height());
     boxBlur(small, qMin(radius, qMax(1, (shortEdge - 1) / 2)));
@@ -159,10 +162,11 @@ QImage blurBackdrop(const CanvasPlan &plan, const QImage &photo)
 
 } // namespace
 
-QImage backdrop(const CanvasPlan &plan, const QString &templateId, const QImage &photo)
+QImage backdrop(const CanvasPlan &plan, const QString &templateId,
+                const QImage &photo, qreal blurStrength)
 {
     if (templateId == QLatin1String(kBlur) && !photo.isNull())
-        return blurBackdrop(plan, photo);
+        return blurBackdrop(plan, photo, blurStrength);
 
     QImage canvas(plan.canvasSize, QImage::Format_ARGB32_Premultiplied);
     canvas.fill(Qt::white);   // bottom / around：白底

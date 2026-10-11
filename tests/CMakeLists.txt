@@ -4,6 +4,11 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Concurrent Test)
 add_executable(test_appinfo test_appinfo.cpp)
 target_link_libraries(test_appinfo PRIVATE framext_core Qt6::Core Qt6::Test)
 
+# M5.1 模板参数化：参数声明/JSON 往返/几何覆盖（黄金图一致性由 test_golden 背书）
+# 链 app 资源：断言 resources/templates/*.json 与 builtinSpecs 一致
+add_executable(test_templates test_templates.cpp ../resources.qrc)
+target_link_libraries(test_templates PRIVATE framext_core Qt6::Core Qt6::Gui Qt6::Test)
+
 add_executable(test_model test_model.cpp)
 target_link_libraries(test_model PRIVATE framext_core Qt6::Core Qt6::Gui Qt6::Test)
 
@@ -35,6 +40,7 @@ add_executable(test_samples test_samples.cpp)
 target_link_libraries(test_samples PRIVATE framext_core framext_platform Qt6::Core Qt6::Gui Qt6::Test)
 
 add_test(NAME test_appinfo COMMAND test_appinfo)
+add_test(NAME test_templates COMMAND test_templates)
 add_test(NAME test_model COMMAND test_model)
 add_test(NAME test_render COMMAND test_render)
 add_test(NAME test_layout COMMAND test_layout)

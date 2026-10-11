@@ -320,6 +320,7 @@ void MainWindow::buildUi()
                 refreshBasicInfo();
                 refreshWatermarkPanel();
                 syncTemplateCombo();
+                syncTemplateSliders();
             });
 
     // —— 列表交互接线 ——
@@ -592,6 +593,56 @@ QWidget *MainWindow::buildRightPanel()
             m_project->setTemplateId(id);
     });
     templateLayout->addWidget(m_templateCombo);
+
+    // —— 高频模板参数滑杆（M5.1，04-UI §G-H：随模板联动显示 1-2 个；
+    //      完整参数编辑进 M5.2 模板管理器）——
+    auto makeParamRow = [templateContent](const QString &label) {
+        auto *row = new QWidget(templateContent);
+        auto *lay = new QHBoxLayout(row);
+        lay->setContentsMargins(0, 0, 0, 0);
+        lay->setSpacing(6);
+        auto *caption = new QLabel(label, row);
+        lay->addWidget(caption);
+        auto *slider = new QSlider(Qt::Horizontal, row);
+        lay->addWidget(slider, 1);
+        auto *value = new QLabel(row);
+        value->setObjectName("panelCount");
+        value->setMinimumWidth(40);
+        value->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        lay->addWidget(value);
+        row->setVisible(false);   // 空态/未知模板隐藏
+        return QPair<QSlider *, QLabel *>{ slider, value };
+    };
+    auto bandRow = makeParamRow(tr("信息带高度"));
+    m_bandSlider = bandRow.first;
+    m_bandValue = bandRow.second;
+    auto cornerRow = makeParamRow(tr("圆角"));
+    m_cornerSlider = cornerRow.first;
+    m_cornerValue = cornerRow.second;
+    auto blurRow = makeParamRow(tr("模糊强度"));
+    m_blurSlider = blurRow.first;
+    m_blurValue = blurRow.second;
+    templateLayout->addWidget(bandRow.first->parentWidget());
+    templateLayout->addWidget(cornerRow.first->parentWidget());
+    templateLayout->addWidget(blurRow.first->parentWidget());
+
+    // 滑杆 → 参数（连续 valueChanged；渲染防抖由 controller 250ms 合并）
+    // 档位：×1000 千分比（信息带/圆角），×100（模糊强度）
+    connect(m_bandSlider, &QSlider::valueChanged, this, [this](int v) {
+        m_bandValue->setText(tr("%1%").arg(v / 10.0, 0, 'f', 1));
+        m_project->setTemplateParam(QStringLiteral("exBandRatioLandscape"),
+                                    v / 1000.0);
+    });
+    connect(m_cornerSlider, &QSlider::valueChanged, this, [this](int v) {
+        m_cornerValue->setText(tr("%1%").arg(v / 10.0, 0, 'f', 1));
+        m_project->setTemplateParam(QStringLiteral("blurCornerRadiusRatio"),
+                                    v / 1000.0);
+    });
+    connect(m_blurSlider, &QSlider::valueChanged, this, [this](int v) {
+        m_blurValue->setText(QStringLiteral("×%1").arg(v / 100.0, 0, 'f', 2));
+        m_project->setTemplateParam(QStringLiteral("blurStrength"), v / 100.0);
+    });
+
     templateLayout->addStretch();
     templateContent->setEnabled(false);
     layout->addWidget(createCard(tr("模板"), QString(), templateContent));
@@ -661,6 +712,49 @@ void MainWindow::syncTemplateCombo()
             m_templateCombo->setCurrentIndex(i);
             return;
         }
+    }
+}
+
+void MainWindow::syncTemplateSliders()
+{
+    // 高频参数滑杆回同步（M5.1）：随模板 kind 显隐 + 按当前文档参数回填。
+    // QSignalBlocker 防回环（回填触发 valueChanged 会把默认值写回参数）。
+    const PhotoDocument *doc = m_project->current();
+    const bool hasDoc = doc && !doc->meta.pixelSize.isEmpty();
+    const QString kind = hasDoc ? doc->templateState.templateId : QString();
+    const QVariantMap &params =
+        hasDoc ? doc->templateState.templateParams : QVariantMap();
+
+    // 信息带高度（bottom/around 高频）：默认 9%
+    m_bandSlider->parentWidget()->setVisible(
+        kind == QStringLiteral("bottom") || kind == QStringLiteral("around"));
+    if (kind == QStringLiteral("bottom") || kind == QStringLiteral("around")) {
+        const double v = params.value(QStringLiteral("exBandRatioLandscape"),
+                                      0.09).toDouble();
+        QSignalBlocker blocker(m_bandSlider);
+        m_bandSlider->setRange(40, 200);   // 千分比：4%–20%
+        m_bandSlider->setValue(qRound(v * 1000.0));
+        m_bandValue->setText(tr("%1%").arg(v * 100.0, 0, 'f', 1));
+    }
+
+    // 圆角 + 模糊强度（blur 高频）
+    const bool blur = kind == QStringLiteral("blur");
+    m_cornerSlider->parentWidget()->setVisible(blur);
+    m_blurSlider->parentWidget()->setVisible(blur);
+    if (blur) {
+        const double c = params.value(QStringLiteral("blurCornerRadiusRatio"),
+                                      1.0 / 60.0).toDouble();
+        QSignalBlocker blocker(m_cornerSlider);
+        m_cornerSlider->setRange(0, 50);   // 千分比：0–5%
+        m_cornerSlider->setValue(qRound(c * 1000.0));
+        m_cornerValue->setText(tr("%1%").arg(c * 100.0, 0, 'f', 1));
+
+        const double s = params.value(QStringLiteral("blurStrength"),
+                                      1.0).toDouble();
+        QSignalBlocker blocker2(m_blurSlider);
+        m_blurSlider->setRange(40, 200);   // 百分比：0.4×–2.0×
+        m_blurSlider->setValue(qRound(s * 100.0));
+        m_blurValue->setText(QStringLiteral("×%1").arg(s, 0, 'f', 2));
     }
 }
 

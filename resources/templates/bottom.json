@@ -1,0 +1,11 @@
+{
+    "builtin": true,
+    "id": "bottom",
+    "kind": "bottom",
+    "name": "底部边框",
+    "params": [
+        { "key": "exBandRatioLandscape", "label": "信息带高度（横图）", "default": 0.09, "min": 0.04, "max": 0.20, "step": 0.005 },
+        { "key": "exBandRatioPortrait", "label": "信息带高度（竖图）", "default": 0.10, "min": 0.04, "max": 0.20, "step": 0.005 }
+    ],
+    "schemaVersion": 1
+}

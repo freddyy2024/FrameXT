@@ -61,6 +61,10 @@ public:
     void clearFieldOverride(const QString &fieldKey);   // 恢复该字段原值
     void clearOverrides();
     void setTemplateId(const QString &templateId);
+    // 模板参数微调（M5.1，滑杆/管理器）：写入 TemplateState::templateParams
+    // 并防抖重渲染。不进撤销栈——滑杆连续拖动会刷穿 20 深快照栈（与 M3
+    // 挂账「撤销粒度合并」同类问题），撤销粒度待挂账统一解决
+    void setTemplateParam(const QString &key, double value);
     // 手动定位：锚点 + 相对偏移；hasCustomPosition=true 脱离行组
     void moveElement(const QUuid &elementId, Anchor anchor, const QPointF &offset);
     // 拖动增量（画布松手提交；保持原锚点，offset 累加）

@@ -27,10 +27,19 @@ constexpr qint64 kMaxEdge = 32767;
 // M5 模板参数化后：影响 S3 的参数（模糊强度/圆角/底色）必须纳入 key。
 QString backdropKey(const RenderRequest &req, const CanvasPlan &plan)
 {
+    // M5.1：模板参数并入缓存键。blurStrength 不改变画布尺寸，若不入键，
+    // 调强度滑杆会命中旧背景缓存（拖动无反应）；其余参数改变画布尺寸
+    // 本身就会 miss，统一入键无害。
+    QString params;
+    for (auto it = req.templateState.templateParams.constBegin();
+         it != req.templateState.templateParams.constEnd(); ++it)
+        params += it.key() + QLatin1Char('=') + it.value().toString()
+                  + QLatin1Char(';');
     return req.photoId.toString(QUuid::WithoutBraces) + QLatin1Char('\n')
         + req.templateState.templateId + QLatin1Char('\n')
         + QString::number(plan.canvasSize.width()) + QLatin1Char('x')
-        + QString::number(plan.canvasSize.height());
+        + QString::number(plan.canvasSize.height()) + QLatin1Char('\n')
+        + params;
 }
 
 } // namespace
@@ -76,9 +85,12 @@ RenderResult RenderPipeline::run(const RenderRequest &request,
         return result;
     }
 
-    // —— S2 画布几何（相对单位制：以缩放后尺寸解算，比例恒定）——
+    // —— S2 画布几何（相对单位制：以缩放后尺寸解算，比例恒定；
+    //      M5.1 起模板参数参与解算，缺失键回落内置常量）——
     const CanvasPlan plan =
-        CanvasGeometry::plan(request.templateState.templateId, decoded.image.size());
+        CanvasGeometry::plan(request.templateState.templateId,
+                             decoded.image.size(),
+                             request.templateState.templateParams);
     if (plan.canvasSize.isEmpty()) {
         result.error = QStringLiteral("画布解算失败：%1")
                            .arg(request.templateState.templateId);
@@ -89,8 +101,10 @@ RenderResult RenderPipeline::run(const RenderRequest &request,
     const QString key = backdropKey(request, plan);
     QImage backdrop = cache->backdrop(key);
     if (backdrop.isNull()) {
-        backdrop = BackdropRenderer::backdrop(plan, request.templateState.templateId,
-                                              decoded.image);
+        backdrop = BackdropRenderer::backdrop(
+            plan, request.templateState.templateId, decoded.image,
+            CanvasGeometry::paramOf(request.templateState.templateParams,
+                                    "blurStrength", 1.0));
         // 导出图不写入共享预览缓存：单张导出底图 ≈180MB 会挤掉全部预览条目
         // （§4.2 缓存为预览防抖服务，导出不依赖预览历史）
         if (request.purpose == RenderPurpose::Preview)
