@@ -20,14 +20,14 @@
 namespace fxt {
 
 namespace {
-// 列表项缩略图规格（§3.7：项宽 120）
+// 列表项缩略图规格（用户指令：项宽 170，高度随列表区域自适应）
 constexpr QSize kThumbSize(112, 84);
-constexpr int kItemWidth = 120;
+constexpr int kItemWidth = 170;
+constexpr int kThumbPadding = 5;   // 照片与 item 边缘的内衬间距
 
-// 缩略图绘制（用户指令：水平+垂直居中，长边等比缩放）：
-// QIcon::paint 自带 KeepAspectRatio + AlignCenter，在 item 矩形内
-// 留 4px 内衬居中绘制；文字清空（文件名走 tooltip），背景/选中/hover
-// 态仍由基类按 QSS 绘制。
+// 缩略图绘制（用户指令：水平+垂直居中，长边等比缩放，四周 5px 间距）：
+// QIcon::paint 自带 KeepAspectRatio + AlignCenter；文字清空（文件名走
+// tooltip），背景/选中/hover 态仍由基类按 QSS 绘制。
 class ThumbDelegate : public QStyledItemDelegate
 {
 public:
@@ -42,7 +42,9 @@ public:
         opt.text.clear();
         QStyledItemDelegate::paint(painter, opt, index);
         if (!opt.icon.isNull())
-            opt.icon.paint(painter, opt.rect.adjusted(4, 4, -4, -4),
+            opt.icon.paint(painter,
+                           opt.rect.adjusted(kThumbPadding, kThumbPadding,
+                                             -kThumbPadding, -kThumbPadding),
                            Qt::AlignCenter);
     }
 };
@@ -126,7 +128,7 @@ void PhotoListPanel::addPhoto(const QUuid &id, const QString &fileName,
                                      QString());
     item->setData(Qt::UserRole, id);
     item->setData(Qt::UserRole + 1, fileName);
-    item->setSizeHint(QSize(kItemWidth, kThumbSize.height() + 8));
+    item->setSizeHint(QSize(kItemWidth, currentItemHeight()));
     item->setToolTip(fileName);
     m_list->addItem(item);
     m_items.insert(id, item);
@@ -160,6 +162,28 @@ void PhotoListPanel::setCurrent(const QUuid &id)
 void PhotoListPanel::setUndoEnabled(bool enabled)
 {
     m_undoButton->setEnabled(enabled);
+}
+
+// item 高度 100% 自适应列表区域（用户指令），宽度固定 kItemWidth
+int PhotoListPanel::currentItemHeight() const
+{
+    const int h = m_list->viewport()->height();
+    return h > kThumbSize.height() ? h : kThumbSize.height();
+}
+
+void PhotoListPanel::updateItemHeights()
+{
+    const QSize size(kItemWidth, currentItemHeight());
+    for (int i = 0; i < m_list->count(); ++i)
+        m_list->item(i)->setSizeHint(size);
+}
+
+void PhotoListPanel::resizeEvent(QResizeEvent *event)
+{
+    QFrame::resizeEvent(event);
+    // 排到下一拍：布局完成后再读列表视口高度，item 全量刷新
+    QMetaObject::invokeMethod(this, &PhotoListPanel::updateItemHeights,
+                              Qt::QueuedConnection);
 }
 
 bool PhotoListPanel::eventFilter(QObject *watched, QEvent *event)

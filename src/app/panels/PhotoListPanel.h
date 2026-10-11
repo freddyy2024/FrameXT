@@ -39,8 +39,11 @@ signals:
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private:
+    int currentItemHeight() const;   // item 高度 = 列表视口高（自适应）
+    void updateItemHeights();        // 区域变化时全量刷新 item 高度
     void updateSummary();
     void showContextMenu(const QPoint &pos);
 
