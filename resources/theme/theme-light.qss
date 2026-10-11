@@ -445,13 +445,15 @@ QSplitter::handle {
     border-color: #6C5CE7;
 }
 
-/* 选中元素样式区：浅灰细边框（用户指令，取色板弱边 #D8DCE2）；
-   标题浮于 margin 区并遮断边框线 */
+/* 选中元素样式区：浅灰细边框（用户指令，取色板弱边 #D8DCE2），
+   本体透明融入白卡；外部两侧缩进 5px；标题浮于 margin 区并遮断边框线 */
 #styleGroup {
     border: 1px solid #D8DCE2;
     border-radius: 5px;
     margin-top: 8px;
-    background: #F5F6F8;
+    margin-left: 5px;
+    margin-right: 5px;
+    background: transparent;
 }
 #styleGroup::title {
     subcontrol-origin: margin;
@@ -459,7 +461,8 @@ QSplitter::handle {
     padding: 0 4px;
     color: #5A6068;
     font-size: 12px;
-    background: #F5F6F8;
+    /* 遮边框线的底色 = 所在白卡的底色（本体已透明） */
+    background: #FFFFFF;
 }
 #watermarkRow[rowSelected="true"] {
     background: #EFEBFD;
