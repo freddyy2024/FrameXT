@@ -22,8 +22,8 @@ QMainWindow, #centralArea {
 QWidget {
     color: #1F2329;
     font-size: 12px;
-    /* 全局品牌字体：阿里巴巴普惠体 55 Regular（随资源嵌入，
-       main.cpp 加载）；缺字回退微软雅黑 */
+    /* 全局品牌字体：思源黑体 SC Regular（随资源嵌入，
+       main.cpp 加载，M5.5 起）；缺字回退微软雅黑 */
     font-family: "Source Han Sans SC", "Microsoft YaHei UI";
 }
 
@@ -445,13 +445,21 @@ QSplitter::handle {
     border-color: #6C5CE7;
 }
 
-/* 选中元素样式区 */
+/* 选中元素样式区：浅灰细边框（用户指令，取色板弱边 #D8DCE2）；
+   标题浮于 margin 区并遮断边框线 */
+#styleGroup {
+    border: 1px solid #D8DCE2;
+    border-radius: 5px;
+    margin-top: 8px;
+    background: #F5F6F8;
+}
 #styleGroup::title {
     subcontrol-origin: margin;
     left: 8px;
     padding: 0 4px;
     color: #5A6068;
     font-size: 12px;
+    background: #F5F6F8;
 }
 #watermarkRow[rowSelected="true"] {
     background: #EFEBFD;

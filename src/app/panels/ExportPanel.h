@@ -32,6 +32,10 @@ public:
     // 无照片空态禁用（§3.4：45% 透明不可交互）
     void setHasPhotos(bool has);
 
+    // 执行导出按钮（用户指令：与导入按钮并排卡顶，外部布局 reparent
+    // 接管；按钮显示/启用状态仍由 setHasPhotos/setExporting 驱动）
+    QPushButton *exportButton() const { return m_exportButton; }
+
     void setExporting(bool running);
     void updateProgress(int done, int total, const QString &currentFile);
 

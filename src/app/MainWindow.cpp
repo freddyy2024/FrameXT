@@ -75,8 +75,11 @@ constexpr int kPhotoListHeight = 176;
 constexpr int kResizeBorderLogical = 8;
 #endif
 
-// 通用卡片：32 高标题行（12 SemiBold）+ 内容区（04-UI设计.md §3.2 面板结构）
-QFrame *createCard(const QString &title, const QString &countHint, QWidget *content)
+// 通用卡片：32 高标题行（12 SemiBold）+ 内容区（04-UI设计.md §3.2 面板结构）。
+// countOut 非空时返回标题行右侧的计数标签（countHint 可为空串），供调用方
+// 运行期动态更新（如导入导出卡的「已选 x 张」）
+QFrame *createCard(const QString &title, const QString &countHint,
+                   QWidget *content, QLabel **countOut = nullptr)
 {
     auto *card = new QFrame;
     card->setObjectName("card");
@@ -93,10 +96,12 @@ QFrame *createCard(const QString &title, const QString &countHint, QWidget *cont
     titleLabel->setObjectName("panelTitle");
     headerLayout->addWidget(titleLabel);
     headerLayout->addStretch();
-    if (!countHint.isEmpty()) {
+    if (!countHint.isEmpty() || countOut) {
         auto *count = new QLabel(countHint, header);
         count->setObjectName("panelCount");
         headerLayout->addWidget(count);
+        if (countOut)
+            *countOut = count;
     }
     layout->addWidget(header);
     if (content)
@@ -454,12 +459,18 @@ QWidget *MainWindow::buildLeftPanel()
     m_basicInfo = new BasicInfoPanel(panel);
     layout->addWidget(m_basicInfo, 1);
 
-    // 导入导出卡（§3.3；导出执行 M4 接线，先就位表单）
+    // 导入导出卡（§3.3；导出执行 M4 接线，先就位表单）。
+    // 布局（用户指令）：导入/执行导出两按钮并排卡顶各占一半（间距 10px），
+    // 「已选 x 张」移至卡片标题栏右侧——内容区少两行，面板高度收紧
     auto *ioContent = new QWidget;
     ioContent->setObjectName("cardBody");
     auto *ioLayout = new QVBoxLayout(ioContent);
     ioLayout->setContentsMargins(12, 10, 12, 12);
     ioLayout->setSpacing(6);
+
+    // 导出表单先建：执行导出按钮由表单创建，reparent 到卡顶动作行
+    //（导出进行中按钮隐藏/进度条仍在表单内，ExportPanel 状态逻辑不变）
+    m_exportPanel = new ExportPanel(ioContent);
 
     auto *importButton = new QPushButton(tr("导入照片…"), ioContent);
     importButton->setObjectName("primaryButton");
@@ -472,19 +483,19 @@ QWidget *MainWindow::buildLeftPanel()
             importPaths(files);
         }
     });
-    ioLayout->addWidget(importButton);
+    auto *actionRow = new QHBoxLayout;
+    actionRow->setSpacing(10);
+    actionRow->addWidget(importButton, 1);
+    actionRow->addWidget(m_exportPanel->exportButton(), 1);
+    ioLayout->addLayout(actionRow);
 
-    m_importSummary = new QLabel(tr("尚未导入照片"), ioContent);
-    m_importSummary->setObjectName("panelCount");
-    ioLayout->addWidget(m_importSummary);
-
-    // 导出表单（§3.3 完整五项；M4 起接线 ExportController）
-    m_exportPanel = new ExportPanel(ioContent);
     ioLayout->addWidget(m_exportPanel);
 
     // 「关于」入口已移至标题栏 ⓘ 按钮（用户指令），面板内不再重复
 
-    layout->addWidget(createCard(tr("导入导出"), QString(), ioContent));
+    // 「已选 x 张」上标题栏（panelCount 样式原样保留）
+    layout->addWidget(createCard(tr("导入导出"), QString(), ioContent,
+                                 &m_importSummary));
 
     return panel;
 }

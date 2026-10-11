@@ -115,7 +115,8 @@ void WatermarkPanel::buildStyleArea()
     m_styleGroup = new QGroupBox(tr("选中元素样式"), this);
     m_styleGroup->setObjectName("styleGroup");
     auto *layout = new QGridLayout(m_styleGroup);
-    layout->setContentsMargins(12, 8, 12, 10);
+    // 内边距（用户指令）：两边及顶部 5px（底部保持），配合浅灰细边框
+    layout->setContentsMargins(5, 5, 5, 10);
     layout->setHorizontalSpacing(6);
     layout->setVerticalSpacing(6);
 
@@ -133,7 +134,7 @@ void WatermarkPanel::buildStyleArea()
     m_fontScaleSpin->setRange(0.005, 0.10);
     m_fontScaleSpin->setSingleStep(0.002);
     m_fontScaleSpin->setDecimals(3);
-    m_fontScaleSpin->setFixedWidth(72);
+    m_fontScaleSpin->setFixedWidth(96);   // 用户指令：原 72 加宽 1/3
     m_fontScaleSpin->setToolTip(tr("字号（相对画布宽）"));
     layout->addWidget(new QLabel(tr("字号"), m_styleGroup), 1, 0);
     layout->addWidget(m_fontScaleSpin, 1, 1);
