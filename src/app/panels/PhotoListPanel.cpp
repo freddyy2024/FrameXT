@@ -182,12 +182,13 @@ void PhotoListPanel::setUndoEnabled(bool enabled)
 }
 
 // item 高度 100% 自适应列表区域（用户指令），宽度固定 kItemWidth。
-// 注意：IconMode 下 QListView 会把 spacing 计入单元格尺寸，item 高度必须
-// 再减去 spacing（否则内容 = 视口 + spacing，超界产生纵向滚动范围，用户
-// 反馈「模块出现垂直滚动条」）；2px 为亚像素舍入余量。
+// 注意：IconMode 下 QListView 的内容上下各留一份 spacing（实测 item rect
+// 从 y=spacing 起、内容底部再加一份），必须减两份，否则内容恒比视口高
+// 一个 spacing 而产生可滚动范围（用户反馈「列表还能垂直滚动」）；
+// 额外 2px 为亚像素舍入余量。
 int PhotoListPanel::currentItemHeight() const
 {
-    const int h = m_list->viewport()->height() - m_list->spacing() - 2;
+    const int h = m_list->viewport()->height() - 2 * m_list->spacing() - 2;
     return h > kThumbSize.height() ? h : kThumbSize.height();
 }
 

@@ -301,13 +301,13 @@ QSlider::handle:horizontal:hover {
 /* ---------- 滚动条 ---------- */
 QScrollBar:vertical {
     background: transparent;
-    width: 8px;
+    width: 6px;
     margin: 0;
 }
 
 QScrollBar::handle:vertical {
     background: #C3C8CF;
-    border-radius: 4px;
+    border-radius: 3px;
     min-height: 32px;
 }
 
@@ -317,13 +317,13 @@ QScrollBar::handle:vertical:hover {
 
 QScrollBar:horizontal {
     background: transparent;
-    height: 8px;
+    height: 6px;
     margin: 0;
 }
 
 QScrollBar::handle:horizontal {
     background: #C3C8CF;
-    border-radius: 4px;
+    border-radius: 3px;
     min-width: 32px;
 }
 
