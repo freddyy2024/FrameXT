@@ -65,5 +65,17 @@ TemplateSpec specFromJson(const QByteArray &json, bool *ok = nullptr,
                           int *schemaVersion = nullptr);
 constexpr int kSchemaVersion = 1;
 
+// —— .ftpl 导入导出（M5.3，跨实例分享）——
+// 导出：specToJson 写入 filePath（QSaveFile 原子写）。失败时返回 false，
+// *error 为用户可读原因（目录不可写等）。
+bool exportTemplate(const TemplateSpec &spec, const QString &filePath,
+                    QString *error = nullptr);
+// 导入：读取 + 解析 + 版本闸 + 冲突避让后安装为用户模板。
+// 冲突避让 = 分享包 id 与内置/现有用户模板撞车时生成新 UUID——导入
+// 永不覆盖已有模板（重复导入产生独立副本，不丢用户本地修改）。
+// 成功返回新模板 id；失败返回空，*error 为用户可读原因
+// （版本过新 / 文件损坏 / 安装失败）。
+QString importTemplate(const QString &filePath, QString *error = nullptr);
+
 } // namespace TemplateCatalog
 } // namespace fxt

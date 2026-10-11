@@ -1,6 +1,7 @@
 #include "TemplateManagerDialog.h"
 
 #include <QDialogButtonBox>
+#include <QFileDialog>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QLabel>
@@ -8,6 +9,7 @@
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QRegularExpression>
 #include <QSignalBlocker>
 #include <QSlider>
 #include <QToolButton>
@@ -69,6 +71,20 @@ TemplateManagerDialog::TemplateManagerDialog(ProjectController *project,
     connect(saveAs, &QPushButton::clicked, this,
             &TemplateManagerDialog::saveAsNew);
     left->addWidget(saveAs);
+
+    // M5.3 .ftpl 分享包：导入安装为用户模板；导出仅用户模板（04-UI §6）
+    auto *import = new QPushButton(tr("导入 .ftpl…"), this);
+    import->setObjectName("secondaryButton");
+    connect(import, &QPushButton::clicked, this,
+            &TemplateManagerDialog::importFromFile);
+    left->addWidget(import);
+
+    auto *exportBtn = new QPushButton(tr("导出 .ftpl…"), this);
+    exportBtn->setObjectName("secondaryButton");
+    m_exportButton = exportBtn;
+    connect(exportBtn, &QPushButton::clicked, this,
+            &TemplateManagerDialog::exportToFile);
+    left->addWidget(exportBtn);
 
     auto *remove = new QPushButton(tr("删除所选…"), this);
     remove->setObjectName("secondaryButton");
@@ -269,6 +285,52 @@ void TemplateManagerDialog::saveEdits()
     QMessageBox::information(this, tr("模板管理"), tr("模板已保存"));
 }
 
+void TemplateManagerDialog::importFromFile()
+{
+    // 宽容接受 *.json：用户可能直接分享 %APPDATA% 里的原文件
+    const QString path = QFileDialog::getOpenFileName(
+        this, tr("导入模板包"), QString(),
+        tr("模板包 (*.ftpl *.json)"));
+    if (path.isEmpty())
+        return;
+    QString error;
+    const QString id = TemplateCatalog::importTemplate(path, &error);
+    if (id.isEmpty()) {
+        QMessageBox::warning(this, tr("导入模板包"),
+                             error.isEmpty() ? tr("模板导入失败") : error);
+        return;
+    }
+    emit templateListChanged();
+    reloadList(id);   // 列表选中新导入项即视觉反馈，不额外弹窗
+}
+
+void TemplateManagerDialog::exportToFile()
+{
+    if (!m_list->currentItem())
+        return;
+    const TemplateSpec spec = TemplateCatalog::specFor(
+        m_list->currentItem()->data(Qt::UserRole).toString());
+    // 模板名直接做默认文件名：先清洗 Windows 非法字符
+    QString base = spec.name;
+    base.replace(QRegularExpression(QStringLiteral(R"([\\/:*?"<>|])")),
+                 QStringLiteral("_"));
+    if (base.trimmed().isEmpty())
+        base = QStringLiteral("template");
+    const QString path = QFileDialog::getSaveFileName(
+        this, tr("导出模板包"), base + QLatin1String(".ftpl"),
+        tr("模板包 (*.ftpl)"));
+    if (path.isEmpty())
+        return;
+    QString error;
+    if (!TemplateCatalog::exportTemplate(spec, path, &error)) {
+        QMessageBox::warning(this, tr("导出模板包"),
+                             error.isEmpty() ? tr("模板导出失败") : error);
+        return;
+    }
+    QMessageBox::information(this, tr("导出模板包"),
+                             tr("模板已导出到：%1").arg(path));
+}
+
 void TemplateManagerDialog::removeSelected()
 {
     if (!m_list->currentItem())
@@ -295,11 +357,12 @@ void TemplateManagerDialog::updateButtonStates()
                            ? m_list->currentItem()->data(Qt::UserRole)
                                  .toString()
                            : QString();
-    // 内置只读：保存/删除不可用（另存为始终可用）
+    // 内置只读：保存/删除/导出不可用（另存为/导入始终可用）
     const bool editable = !TemplateCatalog::specFor(id).builtin
                           && !id.isEmpty();
     m_saveButton->setEnabled(editable);
     m_deleteButton->setEnabled(editable);
+    m_exportButton->setEnabled(editable);
 }
 
 } // namespace fxt

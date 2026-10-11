@@ -33,6 +33,8 @@ private:
     void applyToCurrentPhoto();
     void saveAsNew();
     void saveEdits();
+    void importFromFile();   // M5.3：.ftpl 分享包导入（安装为用户模板）
+    void exportToFile();     // M5.3：选中用户模板导出 .ftpl
     void removeSelected();
     void updateButtonStates();
 
@@ -43,6 +45,7 @@ private:
     QVBoxLayout *m_paramLayout = nullptr;
     QPushButton *m_saveButton = nullptr;     // 保存修改到模板（用户模板）
     QPushButton *m_deleteButton = nullptr;   // 删除所选（用户模板）
+    QPushButton *m_exportButton = nullptr;   // 导出 .ftpl（用户模板）
     QVariantMap m_editValues;   // 当前选中模板的编辑值（滑杆写、应用/保存读）
 };
 

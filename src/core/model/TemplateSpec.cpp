@@ -6,6 +6,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSaveFile>
 #include <QStandardPaths>
 #include <QUuid>
 
@@ -286,7 +287,12 @@ TemplateSpec specFromJson(const QByteArray &json, bool *ok, int *schemaVersion)
     const int version = o["schemaVersion"].toInt();
     if (schemaVersion)
         *schemaVersion = version;
-    // 版本闸：高于已知版本拒绝解析（调用方提示更新应用，不静默降级）
+    // 版本闸：高于已知版本拒绝解析（调用方提示更新应用，不静默降级）。
+    // schemaVersion 迁移链（M5.3 约定）：低于当前版本的输入在解析前
+    // 逐级升级——v1 为首个版本暂无历史步骤；未来升版时在此追加
+    // migrateV1toV2 等纯函数（旧字段→新字段），保证旧分享包永远可导入。
+    // 缺 schemaVersion 记 0，宽容按当前语义读取（与 ModelIo 缺字段回落
+    // 默认值约定一致）
     if (version > kSchemaVersion)
         return {};
     bool paramsOk = true;
@@ -301,6 +307,66 @@ TemplateSpec specFromJson(const QByteArray &json, bool *ok, int *schemaVersion)
     if (ok)
         *ok = valid;
     return valid ? s : TemplateSpec{};
+}
+
+bool exportTemplate(const TemplateSpec &spec, const QString &filePath,
+                    QString *error)
+{
+    if (error)
+        error->clear();
+    // QSaveFile 原子写：commit 失败不留半截文件（分享包损坏比导出失败更糟）
+    QSaveFile f(filePath);
+    if (!f.open(QIODevice::WriteOnly)) {
+        if (error)
+            *error = QStringLiteral("无法写入文件：%1").arg(filePath);
+        return false;
+    }
+    f.write(specToJson(spec));
+    if (!f.commit()) {
+        if (error)
+            *error = QStringLiteral("写入失败：%1").arg(f.errorString());
+        return false;
+    }
+    return true;
+}
+
+QString importTemplate(const QString &filePath, QString *error)
+{
+    if (error)
+        error->clear();
+    QFile f(filePath);
+    if (!f.open(QIODevice::ReadOnly)) {
+        if (error)
+            *error = QStringLiteral("无法读取文件：%1").arg(filePath);
+        return {};
+    }
+    const QByteArray json = f.readAll();
+    bool ok = false;
+    int version = 0;
+    const TemplateSpec parsed = specFromJson(json, &ok, &version);
+    if (!ok) {
+        if (error) {
+            // 版本闸单独提示（用户可操作：升级应用）；其余归为文件损坏
+            *error = version > kSchemaVersion
+                ? QStringLiteral("模板包版本较新（schema v%1），请更新应用后再导入")
+                      .arg(version)
+                : QStringLiteral("模板包内容无效或已损坏");
+        }
+        return {};
+    }
+    // 冲突避让：id 撞内置/现有用户模板时清空 → saveUserTemplate 生成
+    // 新 UUID（specFor 未命中回落 bottom，其 id 与目标 id 不同即未命中）
+    TemplateSpec toInstall = parsed;
+    toInstall.builtin = false;   // 分享包永远是用户模板身份
+    if (specFor(toInstall.id).id == toInstall.id)
+        toInstall.id.clear();
+    const QString newId = saveUserTemplate(toInstall);
+    if (newId.isEmpty()) {
+        if (error)
+            *error = QStringLiteral("模板安装失败（用户模板目录不可写）");
+        return {};
+    }
+    return newId;
 }
 
 } // namespace TemplateCatalog
