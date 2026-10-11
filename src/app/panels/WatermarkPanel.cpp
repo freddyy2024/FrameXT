@@ -117,6 +117,11 @@ void WatermarkPanel::buildStyleArea()
     layout->setVerticalSpacing(6);
 
     m_fontCombo = new QFontComboBox(m_styleGroup);
+    // 默认按最长字体名自适应宽度，会把窄侧栏的最小宽度撑大（用户指令：
+    // 侧栏调窄）；改按固定内容长度自适应，超宽字体名靠下拉列表展示
+    m_fontCombo->setMinimumContentsLength(8);
+    m_fontCombo->setSizeAdjustPolicy(
+        QComboBox::AdjustToMinimumContentsLengthWithIcon);
     layout->addWidget(m_fontCombo, 0, 0, 1, 2);
 
     m_fontScaleSpin = new QDoubleSpinBox(m_styleGroup);

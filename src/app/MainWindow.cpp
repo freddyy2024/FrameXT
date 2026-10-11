@@ -214,7 +214,9 @@ void MainWindow::buildUi()
     m_mainSplitter->setStretchFactor(0, 0);
     m_mainSplitter->setStretchFactor(1, 1);
     m_mainSplitter->setStretchFactor(2, 0);
-    m_mainSplitter->setSizes({ 260, 714, 288 });
+    // 左右栏上限（用户指令：侧栏过宽挤压中间画布）；restoreState 恢复的
+    // 历史宽值也会被 maximumWidth 截住，无需迁移 QSettings
+    m_mainSplitter->setSizes({ 240, 714, 264 });
 
     // 上：三栏工作区；下：照片列表
     m_rootSplitter = new QSplitter(Qt::Vertical, central);
@@ -437,6 +439,8 @@ QWidget *MainWindow::buildLeftPanel()
 {
     auto *panel = new QWidget;
     panel->setObjectName("sidePanel");
+    // 侧栏宽度上限（用户指令：过宽挤压画布；导入导出表单 260px 内可用）
+    panel->setMaximumWidth(260);
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(kPanelSpacing, kPanelSpacing, 0, 0);
     layout->setSpacing(kPanelSpacing);
@@ -570,6 +574,8 @@ QWidget *MainWindow::buildRightPanel()
 {
     auto *panel = new QWidget;
     panel->setObjectName("sidePanel");
+    // 侧栏宽度上限（用户指令：过宽挤压画布；模板/水印表单 280px 内可用）
+    panel->setMaximumWidth(280);
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(0, kPanelSpacing, kPanelSpacing, 0);
     layout->setSpacing(kPanelSpacing);
