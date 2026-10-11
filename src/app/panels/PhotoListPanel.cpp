@@ -39,13 +39,16 @@ public:
     {
         QStyleOptionViewItem opt = option;
         initStyleOption(&opt, index);
+        const QIcon icon = opt.icon;
+        opt.icon = QIcon();   // 关键：基类也会画 icon（旧尺寸、顶部对齐），
+                              // 不清空会叠出「重影」——清空后由下方自绘接管
         opt.text.clear();
-        QStyledItemDelegate::paint(painter, opt, index);
-        if (!opt.icon.isNull())
-            opt.icon.paint(painter,
-                           opt.rect.adjusted(kThumbPadding, kThumbPadding,
-                                             -kThumbPadding, -kThumbPadding),
-                           Qt::AlignCenter);
+        QStyledItemDelegate::paint(painter, opt, index);   // 背景/选中/hover
+        if (!icon.isNull())
+            icon.paint(painter,
+                       opt.rect.adjusted(kThumbPadding, kThumbPadding,
+                                         -kThumbPadding, -kThumbPadding),
+                       Qt::AlignCenter);
     }
 };
 } // namespace
