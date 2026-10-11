@@ -594,14 +594,10 @@ QWidget *MainWindow::buildBottomPanel()
     layout->setContentsMargins(kPanelSpacing, 0, kPanelSpacing, kPanelSpacing);
     layout->setSpacing(0);
 
-    auto *listArea = new QWidget;
-    listArea->setObjectName("cardBody");
-    auto *listLayout = new QVBoxLayout(listArea);
-    listLayout->setContentsMargins(0, 0, 0, 0);
-    m_photoList = new PhotoListPanel(listArea);
-    listLayout->addWidget(m_photoList);
-
-    layout->addWidget(createCard(tr("照片列表"), QString(), listArea));
+    // 照片列表自带 card 结构（标题栏在面板内部：状态行 + 撤销/清空按钮
+    // 均在其中，不再用 createCard 包裹产生第二行标题）
+    m_photoList = new PhotoListPanel(panel);
+    layout->addWidget(m_photoList, 1);
     return panel;
 }
 

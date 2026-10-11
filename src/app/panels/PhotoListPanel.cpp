@@ -9,6 +9,9 @@
 #include <QLabel>
 #include <QListWidget>
 #include <QMenu>
+#include <QPainter>
+#include <QStyleOptionViewItem>
+#include <QStyledItemDelegate>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -20,36 +23,64 @@ namespace {
 // 列表项缩略图规格（§3.7：项宽 120）
 constexpr QSize kThumbSize(112, 84);
 constexpr int kItemWidth = 120;
+
+// 缩略图绘制（用户指令：水平+垂直居中，长边等比缩放）：
+// QIcon::paint 自带 KeepAspectRatio + AlignCenter，在 item 矩形内
+// 留 4px 内衬居中绘制；文字清空（文件名走 tooltip），背景/选中/hover
+// 态仍由基类按 QSS 绘制。
+class ThumbDelegate : public QStyledItemDelegate
+{
+public:
+    explicit ThumbDelegate(QObject *parent = nullptr)
+        : QStyledItemDelegate(parent) {}
+
+    void paint(QPainter *painter, const QStyleOptionViewItem &option,
+               const QModelIndex &index) const override
+    {
+        QStyleOptionViewItem opt = option;
+        initStyleOption(&opt, index);
+        opt.text.clear();
+        QStyledItemDelegate::paint(painter, opt, index);
+        if (!opt.icon.isNull())
+            opt.icon.paint(painter, opt.rect.adjusted(4, 4, -4, -4),
+                           Qt::AlignCenter);
+    }
+};
 } // namespace
 
 PhotoListPanel::PhotoListPanel(QWidget *parent)
-    : QWidget(parent)
+    : QFrame(parent)
 {
-    setObjectName(QStringLiteral("photoListPanel"));
+    // card 结构与基础属性/导入导出面板一致（标题栏在面板内部）
+    setObjectName(QStringLiteral("card"));
 
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(12, 4, 12, 8);
-    layout->setSpacing(4);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
 
-    // —— 标题行：标题 + 状态行（右侧浅色）+ 撤销/清空图标按钮 ——
-    auto *header = new QHBoxLayout;
-    auto *title = new QLabel(tr("照片列表"));
+    // —— 标题栏：标题 + 状态行（浅色）+ 撤销/清空图标按钮 ——
+    auto *header = new QWidget(this);
+    header->setObjectName(QStringLiteral("panelHeader"));
+    header->setFixedHeight(32);
+    auto *headerLayout = new QHBoxLayout(header);
+    headerLayout->setContentsMargins(12, 0, 8, 0);
+    auto *title = new QLabel(tr("照片列表"), header);
     title->setObjectName(QStringLiteral("panelTitle"));
-    header->addWidget(title);
-    m_summary = new QLabel;
-    m_summary->setObjectName(QStringLiteral("panelCount"));   // 浅色非粗体
-    header->addWidget(m_summary);
-    header->addStretch();
-    m_undoButton = createGlyphButton(this, QStringLiteral("toolGlyph"),
+    headerLayout->addWidget(title);
+    m_summary = new QLabel(header);
+    m_summary->setObjectName(QStringLiteral("panelCount"));
+    headerLayout->addWidget(m_summary);
+    headerLayout->addStretch();
+    m_undoButton = createGlyphButton(header, QStringLiteral("toolGlyph"),
                                      0xE7A7,   // Undo
                                      tr("撤销上一步（Ctrl+Z）"));
     m_undoButton->setEnabled(false);
-    header->addWidget(m_undoButton);
-    m_clearButton = createGlyphButton(this, QStringLiteral("toolGlyph"),
+    headerLayout->addWidget(m_undoButton);
+    m_clearButton = createGlyphButton(header, QStringLiteral("toolGlyph"),
                                       0xE74D,   // Delete
                                       tr("清空列表"));
-    header->addWidget(m_clearButton);
-    layout->addLayout(header);
+    headerLayout->addWidget(m_clearButton);
+    layout->addWidget(header);
 
     // —— 横向缩略图条 ——
     m_list = new QListWidget;
@@ -59,9 +90,9 @@ PhotoListPanel::PhotoListPanel(QWidget *parent)
     m_list->setResizeMode(QListView::Adjust);
     m_list->setWrapping(false);
     m_list->setSelectionMode(QAbstractItemView::SingleSelection);
-    // 缩略图显示区：图标在矩形内以长边等比缩放、水平+垂直居中
-    // （QIcon::paint 自带 KeepAspectRatio + AlignCenter）
+    // 缩略图显示区：自绘 delegate 等比居中（QIcon::paint KeepAspectRatio+AlignCenter）
     m_list->setIconSize(kThumbSize);
+    m_list->setItemDelegate(new ThumbDelegate(m_list));
     m_list->setDragEnabled(false);
     m_list->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_list->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);

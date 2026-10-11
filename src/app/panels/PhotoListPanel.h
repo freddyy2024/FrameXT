@@ -1,9 +1,9 @@
 #pragma once
 
+#include <QFrame>
 #include <QHash>
 #include <QImage>
 #include <QUuid>
-#include <QWidget>
 
 class QLabel;
 class QListWidget;
@@ -13,9 +13,10 @@ class QToolButton;
 namespace fxt {
 
 // 照片列表（开发计划 3.3 / 04-UI §3.7）：
-// 横向缩略图条（单选）+ 右键菜单 + Del 移除 + [↶撤销][清空]。
-// 用户指令：列表只允许单选，不支持多选——选中态即当前态。
-class PhotoListPanel : public QWidget
+// card 结构（标题栏在面板内部：标题 + 状态行 + 撤销/清空图标按钮）
+// + 横向缩略图条（单选，缩略图等比居中）+ 右键菜单 + Del 移除。
+// 用户指令：列表只允许单选；文件名不随缩略图显示（tooltip 提供）。
+class PhotoListPanel : public QFrame
 {
     Q_OBJECT
 
