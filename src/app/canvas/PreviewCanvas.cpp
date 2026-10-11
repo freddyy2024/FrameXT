@@ -189,6 +189,19 @@ void PreviewCanvas::paintEvent(QPaintEvent *)
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
 
+    // 卡片边框（用户指令：与基础属性卡同款边框）。QSS #previewCanvas 的
+    // border 对自绘 paintEvent 不生效，按同规格（kCardBorder/kRadius）自画；
+    // 空态/有图两个出口都要画，lambda 复用
+    auto drawCardFrame = [this, &p] {
+        QPen pen(Theme::kCardBorder);
+        pen.setWidthF(1.0);
+        p.setPen(pen);
+        p.setBrush(Qt::NoBrush);
+        p.drawRoundedRect(QRectF(0.5, 0.5, qreal(width() - 1),
+                                 qreal(height() - 1)),
+                          Theme::kRadius, Theme::kRadius);
+    };
+
     // 棋盘格底（§1.1：16px #FFFFFF/#EDEFF2）
     p.fillRect(rect(), QColor(0xFF, 0xFF, 0xFF));
     if (!m_image.isNull()) {
@@ -210,6 +223,7 @@ void PreviewCanvas::paintEvent(QPaintEvent *)
         p.setFont(f);
         p.drawText(rect(), Qt::AlignCenter,
                    tr("拖入照片开始使用\n或点击选择 — 照片不会离开这台电脑\n支持 JPEG·PNG·WebP·TIFF"));
+        drawCardFrame();
         return;
     }
 
@@ -297,6 +311,8 @@ void PreviewCanvas::paintEvent(QPaintEvent *)
         p.setFont(f);
         p.drawText(cap, Qt::AlignCenter, tr("已隐藏水印 · 显示"));
     }
+
+    drawCardFrame();
 }
 
 // —— 交互 ——

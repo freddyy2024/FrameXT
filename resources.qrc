@@ -11,6 +11,13 @@
         <file alias="logo.png">resources/icons/logo.png</file>
         <file alias="logo-1024px.png">resources/icons/logo-1024px.png</file>
         <file alias="logo-1024px-transparent.png">resources/icons/logo-1024px-transparent.png</file>
+        <file alias="chevron-down.png">resources/icons/chevron-down.png</file>
+        <file alias="chevron-down-hover.png">resources/icons/chevron-down-hover.png</file>
+        <file alias="chevron-up.png">resources/icons/chevron-up.png</file>
+        <file alias="chevron-up-hover.png">resources/icons/chevron-up-hover.png</file>
+    </qresource>
+    <qresource prefix="/fonts">
+        <file alias="AlibabaPuHuiTi-3-55-Regular.ttf">resources/fonts/AlibabaPuHuiTi-3-55-Regular.ttf</file>
     </qresource>
     <qresource prefix="/logos/camera">
         <file alias="Canon_1440_301.png">resources/logos/camera/Canon_1440_301.png</file>

@@ -122,49 +122,56 @@ void WatermarkPanel::buildStyleArea()
     m_fontCombo->setMinimumContentsLength(8);
     m_fontCombo->setSizeAdjustPolicy(
         QComboBox::AdjustToMinimumContentsLengthWithIcon);
-    layout->addWidget(m_fontCombo, 0, 0, 1, 2);
+    // 重排（用户指令：原 4 列混排凌乱）——字体下拉独占整行，
+    // 其余字段两列对齐：标签 | 控件 | 标签 | 控件
+    layout->addWidget(m_fontCombo, 0, 0, 1, 4);
 
     m_fontScaleSpin = new QDoubleSpinBox(m_styleGroup);
     m_fontScaleSpin->setRange(0.005, 0.10);
     m_fontScaleSpin->setSingleStep(0.002);
     m_fontScaleSpin->setDecimals(3);
+    m_fontScaleSpin->setFixedWidth(72);
     m_fontScaleSpin->setToolTip(tr("字号（相对画布宽）"));
-    layout->addWidget(new QLabel(tr("字号"), m_styleGroup), 0, 2);
-    layout->addWidget(m_fontScaleSpin, 0, 3);
+    layout->addWidget(new QLabel(tr("字号"), m_styleGroup), 1, 0);
+    layout->addWidget(m_fontScaleSpin, 1, 1);
 
     m_boldButton = new QToolButton(m_styleGroup);
+    m_boldButton->setObjectName(QStringLiteral("styleMiniButton"));
     m_boldButton->setText(tr("B"));
     m_boldButton->setCheckable(true);
     m_boldButton->setStyleSheet(QStringLiteral("font-weight: bold"));
     m_italicButton = new QToolButton(m_styleGroup);
+    m_italicButton->setObjectName(QStringLiteral("styleMiniButton"));
     m_italicButton->setText(tr("I"));
     m_italicButton->setCheckable(true);
     m_italicButton->setStyleSheet(QStringLiteral("font-style: italic"));
-    layout->addWidget(m_boldButton, 1, 0);
-    layout->addWidget(m_italicButton, 1, 1);
+    layout->addWidget(m_boldButton, 1, 2);
+    layout->addWidget(m_italicButton, 1, 3);
 
     m_colorButton = new QPushButton(m_styleGroup);
-    m_colorButton->setFixedSize(40, 22);
+    m_colorButton->setObjectName(QStringLiteral("colorButton"));
+    m_colorButton->setFixedSize(40, 24);
     m_colorButton->setToolTip(tr("文字颜色"));
-    layout->addWidget(new QLabel(tr("颜色"), m_styleGroup), 1, 2);
-    layout->addWidget(m_colorButton, 1, 3);
+    layout->addWidget(new QLabel(tr("颜色"), m_styleGroup), 2, 0);
+    layout->addWidget(m_colorButton, 2, 1);
 
     m_spacingSpin = new QDoubleSpinBox(m_styleGroup);
     m_spacingSpin->setRange(-0.02, 0.20);
     m_spacingSpin->setSingleStep(0.002);
     m_spacingSpin->setDecimals(3);
+    m_spacingSpin->setFixedWidth(72);
     m_spacingSpin->setToolTip(tr("字间距（相对画布宽）"));
-    layout->addWidget(new QLabel(tr("字间距"), m_styleGroup), 2, 0);
-    layout->addWidget(m_spacingSpin, 2, 1);
+    layout->addWidget(new QLabel(tr("字间距"), m_styleGroup), 2, 2);
+    layout->addWidget(m_spacingSpin, 2, 3);
 
     m_opacitySlider = new QSlider(Qt::Horizontal, m_styleGroup);
     m_opacitySlider->setRange(0, 100);
-    layout->addWidget(new QLabel(tr("透明度"), m_styleGroup), 2, 2);
-    layout->addWidget(m_opacitySlider, 2, 3);
+    layout->addWidget(new QLabel(tr("透明度"), m_styleGroup), 3, 0);
+    layout->addWidget(m_opacitySlider, 3, 1, 1, 3);
 
     m_resetPosButton = new QPushButton(tr("还原位置"), m_styleGroup);
     m_resetPosButton->setObjectName("secondaryButton");
-    layout->addWidget(m_resetPosButton, 3, 0, 1, 4);
+    layout->addWidget(m_resetPosButton, 4, 0, 1, 4);
 
     // 样式区任一控件变化 → 汇总当前 TextStyle 发出
     auto emitStyle = [this] {

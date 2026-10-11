@@ -38,10 +38,17 @@ ExportPanel::ExportPanel(QWidget *parent)
     layout->setContentsMargins(12, 8, 12, 10);
     layout->setSpacing(6);
 
-    auto *form = new QFormLayout;
-    form->setHorizontalSpacing(8);
-    form->setVerticalSpacing(6);
-    form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    // 窄侧栏排版（用户指令：标签与控件同行过挤）——每个字段「标签在上、
+    // 控件在下」，标签用淡色小字（#sectionLabel）
+    auto *form = new QVBoxLayout;
+    form->setContentsMargins(0, 0, 0, 0);
+    form->setSpacing(4);
+    auto addSection = [this, form](const QString &text) {
+        auto *label = new QLabel(text, this);
+        label->setObjectName(QStringLiteral("sectionLabel"));
+        form->addSpacing(2);
+        form->addWidget(label);
+    };
 
     // —— 保存位置 ——
     m_dirEdit = new QLineEdit(this);
@@ -62,7 +69,8 @@ ExportPanel::ExportPanel(QWidget *parent)
     dirRow->setSpacing(6);
     dirRow->addWidget(m_dirEdit, 1);
     dirRow->addWidget(browse);
-    form->addRow(tr("保存位置"), dirRow);
+    addSection(tr("保存位置"));
+    form->addLayout(dirRow);
 
     // —— 文件命名 + 同名冲突（同行两组）——
     m_namingCombo = new QComboBox(this);
@@ -77,13 +85,10 @@ ExportPanel::ExportPanel(QWidget *parent)
     m_conflictCombo->addItem(tr("覆盖"), int(ConflictPolicy::Overwrite));
     m_conflictCombo->addItem(tr("跳过"), int(ConflictPolicy::Skip));
     m_conflictCombo->addItem(tr("每个文件询问"), int(ConflictPolicy::AskEach));
-    auto *namingRow = new QHBoxLayout;
-    namingRow->setContentsMargins(0, 0, 0, 0);
-    namingRow->setSpacing(6);
-    namingRow->addWidget(m_namingCombo, 1);
-    namingRow->addWidget(new QLabel(tr("同名冲突"), this));
-    namingRow->addWidget(m_conflictCombo, 1);
-    form->addRow(tr("文件命名"), namingRow);
+    addSection(tr("文件命名"));
+    form->addWidget(m_namingCombo);
+    addSection(tr("同名冲突"));
+    form->addWidget(m_conflictCombo);
     // 自定义命名：占位符输入 + 序号位数/起始（§3.3；activated 触发——
     // 仅用户点选，程序性 setCurrentIndex 不弹窗）
     connect(m_namingCombo, &QComboBox::activated, this,
@@ -123,9 +128,10 @@ ExportPanel::ExportPanel(QWidget *parent)
     qualityRow->setSpacing(6);
     qualityRow->addWidget(m_formatCombo);
     qualityRow->addWidget(m_qualityCombo, 1);
-    qualityRow->addWidget(new QLabel(tr("尺寸"), this));
-    qualityRow->addWidget(m_sizeCombo, 1);
-    form->addRow(tr("质量与格式"), qualityRow);
+    addSection(tr("质量与格式"));
+    form->addLayout(qualityRow);
+    addSection(tr("尺寸"));
+    form->addWidget(m_sizeCombo);
     connect(m_qualityCombo, &QComboBox::activated, this,
             [this](int index) {
         if (index >= 0
@@ -148,8 +154,10 @@ ExportPanel::ExportPanel(QWidget *parent)
     metaRow->addWidget(m_stripGpsCheck, 1);
     metaRow->addWidget(new QLabel(tr("DPI"), this));
     metaRow->addWidget(m_dpiCombo);
-    form->addRow(tr("元数据"), metaRow);
+    addSection(tr("元数据"));
+    form->addLayout(metaRow);
 
+    form->addStretch();
     layout->addLayout(form);
 
     // —— 执行导出（主按钮，右对齐 §3.3）——

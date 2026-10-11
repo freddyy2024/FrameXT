@@ -212,11 +212,12 @@ void MainWindow::buildUi()
     m_mainSplitter->addWidget(buildCenterPanel());
     m_mainSplitter->addWidget(buildRightPanel());
     m_mainSplitter->setStretchFactor(0, 0);
-    m_mainSplitter->setStretchFactor(1, 1);
-    m_mainSplitter->setStretchFactor(2, 0);
-    // 左右栏上限（用户指令：侧栏过宽挤压中间画布）；restoreState 恢复的
-    // 历史宽值也会被 maximumWidth 截住，无需迁移 QSettings
-    m_mainSplitter->setSizes({ 240, 714, 264 });
+    m_mainSplitter->setStretchFactor(1, 1);   // 中栏吃增量（自适应宽度）
+    m_mainSplitter->setStretchFactor(2, 0);   // 右栏固定宽、贴右缘
+    // 左栏稍宽（用户指令：导出表单改「标签在上」排版后 280 可容）；
+    // 注意不要给侧栏 panel 设 maximumWidth——QSplitter 槽宽与 widget
+    // 最大宽不一致时槽内左对齐，右栏与窗口右缘之间会留出空白（用户报障）
+    m_mainSplitter->setSizes({ 280, 714, 264 });
 
     // 上：三栏工作区；下：照片列表
     m_rootSplitter = new QSplitter(Qt::Vertical, central);
@@ -439,8 +440,6 @@ QWidget *MainWindow::buildLeftPanel()
 {
     auto *panel = new QWidget;
     panel->setObjectName("sidePanel");
-    // 侧栏宽度上限（用户指令：过宽挤压画布；导入导出表单 260px 内可用）
-    panel->setMaximumWidth(260);
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(kPanelSpacing, kPanelSpacing, 0, 0);
     layout->setSpacing(kPanelSpacing);
@@ -574,8 +573,6 @@ QWidget *MainWindow::buildRightPanel()
 {
     auto *panel = new QWidget;
     panel->setObjectName("sidePanel");
-    // 侧栏宽度上限（用户指令：过宽挤压画布；模板/水印表单 280px 内可用）
-    panel->setMaximumWidth(280);
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(0, kPanelSpacing, kPanelSpacing, 0);
     layout->setSpacing(kPanelSpacing);
@@ -779,8 +776,10 @@ void MainWindow::restoreWindowState()
     m_lastDir = settings.value(QStringLiteral("import/lastDir"))
                     .toString();
 
+    // key 带 v2：旧存档是侧栏重排前的宽值（左 260 右 280 时代），恢复
+    // 会让新排版显挤；换 key 作废旧存档，以代码初始值为起点重新记忆
     const QByteArray mainSizes = settings
-                                     .value(QStringLiteral("window/mainSplitter"))
+                                     .value(QStringLiteral("window/mainSplitter/v2"))
                                      .toByteArray();
     if (!mainSizes.isEmpty() && m_mainSplitter)
         m_mainSplitter->restoreState(mainSizes);
@@ -797,7 +796,7 @@ void MainWindow::saveWindowState()
 {
     QSettings settings;
     settings.setValue(QStringLiteral("window/geometry"), saveGeometry());
-    settings.setValue(QStringLiteral("window/mainSplitter"),
+    settings.setValue(QStringLiteral("window/mainSplitter/v2"),
                       m_mainSplitter ? m_mainSplitter->saveState()
                                      : QByteArray());
     settings.setValue(QStringLiteral("window/rootSplitter"),

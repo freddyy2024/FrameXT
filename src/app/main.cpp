@@ -1,6 +1,7 @@
 #include <QApplication>
 #include <QFile>
 #include <QFont>
+#include <QFontDatabase>
 #include <QIcon>
 #include <QLibraryInfo>
 #include <QSettings>
@@ -48,8 +49,17 @@ int main(int argc, char *argv[])
     if (qss.open(QIODevice::ReadOnly | QIODevice::Text))
         app.setStyleSheet(QString::fromUtf8(qss.readAll()));
 
-    // 基础字体：中文环境用微软雅黑（正文 12px，04-UI设计.md §1.2）
-    QFont font(QStringLiteral("Microsoft YaHei UI"), 9);
+    // 全局字体：阿里巴巴普惠体 55 Regular（用户指令），随资源嵌入、
+    // 无需系统安装；QSS 全局 font-family 同步引用（缺字回退微软雅黑）
+    const int brandFontId = QFontDatabase::addApplicationFont(
+        QStringLiteral(":/fonts/AlibabaPuHuiTi-3-55-Regular.ttf"));
+    QString brandFamily = QStringLiteral("Alibaba PuHuiTi 3.0");
+    if (brandFontId < 0) {
+        // 嵌入失败（资源损坏等）回退系统字体，界面仍可用
+        brandFamily = QStringLiteral("Microsoft YaHei UI");
+    }
+    QFont font(brandFamily, 9);
+    font.setStyleStrategy(QFont::PreferAntialias);
     app.setFont(font);
 
     app.setWindowIcon(QIcon(QStringLiteral(":/icons/logo-1024px.png")));

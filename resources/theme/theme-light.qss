@@ -22,6 +22,9 @@ QMainWindow, #centralArea {
 QWidget {
     color: #1F2329;
     font-size: 12px;
+    /* 全局品牌字体：阿里巴巴普惠体 55 Regular（随资源嵌入，
+       main.cpp 加载）；缺字回退微软雅黑 */
+    font-family: "Alibaba PuHuiTi 3.0", "Microsoft YaHei UI";
 }
 
 QLabel {
@@ -56,10 +59,11 @@ QToolButton#languageButton::menu-indicator {
     image: none;   /* 文案已带 ▾，隐藏默认指示箭头 */
 }
 
-QToolButton#captionMin, QToolButton#captionMax {
+QToolButton#captionMin, QToolButton#captionMax, QToolButton#captionEye {
     background: transparent;
     border: none;
     color: #5A6068;
+    /* 图标字形必须覆盖全局字体规则（QSS 字体优先于代码 setFont） */
     font-family: "Segoe Fluent Icons";
     font-size: 10px;
 }
@@ -99,6 +103,9 @@ QToolButton#toolGlyph {
     border-radius: 5px;
     color: #5A6068;
     padding: 2px 5px;
+    /* Segoe 图标字形（覆盖全局字体；1:1 文字按钮同 objectName，
+       Segoe Fluent Icons 含数字/冒号字形，此前显示正常） */
+    font-family: "Segoe Fluent Icons";
 }
 
 QToolButton#toolGlyph:hover {
@@ -228,12 +235,17 @@ QComboBox::drop-down {
     width: 24px;
 }
 
+/* 箭头用 PNG 资源（border 三角技巧在 Qt 渲染为实心方块，用户报障）；
+   hover 换强调色版本 */
 QComboBox::down-arrow {
-    image: none;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 5px solid #5A6068;
-    margin-right: 8px;
+    image: url(:/icons/chevron-down.png);
+    width: 10px;
+    height: 6px;
+    margin-right: 6px;
+}
+
+QComboBox:hover::down-arrow, QComboBox:focus::down-arrow {
+    image: url(:/icons/chevron-down-hover.png);
 }
 
 QComboBox QAbstractItemView {
@@ -243,6 +255,41 @@ QComboBox QAbstractItemView {
     selection-background-color: #EFEBFD;
     selection-color: #1F2329;
     outline: none;
+}
+
+/* SpinBox 上下按钮：原生箭头偏宽（用户反馈样式丑陋），统一 PNG 箭头
+   并收窄按钮命中区 */
+QSpinBox::up-button, QDoubleSpinBox::up-button,
+QSpinBox::down-button, QDoubleSpinBox::down-button {
+    border: none;
+    width: 16px;
+    background: transparent;
+}
+
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {
+    background: #F3F4F7;
+    border-radius: 3px;
+}
+
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {
+    image: url(:/icons/chevron-up.png);
+    width: 8px;
+    height: 5px;
+}
+
+QSpinBox::up-arrow:hover, QDoubleSpinBox::up-arrow:hover {
+    image: url(:/icons/chevron-up-hover.png);
+}
+
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
+    image: url(:/icons/chevron-down.png);
+    width: 8px;
+    height: 5px;
+}
+
+QSpinBox::down-arrow:hover, QDoubleSpinBox::down-arrow:hover {
+    image: url(:/icons/chevron-down-hover.png);
 }
 
 /* ---------- 菜单 ---------- */
@@ -409,4 +456,44 @@ QSplitter::handle {
 #watermarkRow[rowSelected="true"] {
     background: #EFEBFD;
     border-left: 2px solid #6C5CE7;
+}
+
+/* 表单小节标签（导出面板「标签在上」排版，用户指令重排） */
+#sectionLabel {
+    color: #9AA0A8;
+    font-size: 11px;
+}
+
+/* 元素样式区：文字颜色块（原 QPushButton 默认样式渲染成突兀黑方块） */
+QPushButton#colorButton {
+    background: #FFFFFF;
+    border: 1px solid #D8DCE2;
+    border-radius: 4px;
+    padding: 1px;
+}
+
+QPushButton#colorButton:hover {
+    border-color: #6C5CE7;
+}
+
+/* 元素样式区：B/I 迷你开关按钮 */
+QToolButton#styleMiniButton {
+    background: transparent;
+    border: 1px solid #D8DCE2;
+    border-radius: 4px;
+    color: #5A6068;
+    min-width: 26px;
+    min-height: 24px;
+    padding: 0;
+}
+
+QToolButton#styleMiniButton:hover {
+    border-color: #6C5CE7;
+    color: #6C5CE7;
+}
+
+QToolButton#styleMiniButton:checked {
+    background: #EFEBFD;
+    border-color: #6C5CE7;
+    color: #6C5CE7;
 }
