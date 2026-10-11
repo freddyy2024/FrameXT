@@ -10,6 +10,7 @@
 #include <QListWidget>
 #include <QMenu>
 #include <QPainter>
+#include <QStyle>
 #include <QStyleOptionViewItem>
 #include <QStyledItemDelegate>
 #include <QToolButton>
@@ -27,7 +28,7 @@ constexpr int kThumbPadding = 5;   // 照片与 item 边缘的内衬间距
 
 // 缩略图绘制（用户指令：水平+垂直居中，长边等比缩放，四周 5px 间距）：
 // QIcon::paint 自带 KeepAspectRatio + AlignCenter；文字清空（文件名走
-// tooltip），背景/选中/hover 态仍由基类按 QSS 绘制。
+// tooltip），背景/选中/hover 态按 QSS 绘制。
 class ThumbDelegate : public QStyledItemDelegate
 {
 public:
@@ -37,13 +38,21 @@ public:
     void paint(QPainter *painter, const QStyleOptionViewItem &option,
                const QModelIndex &index) const override
     {
+        // 不能走 QStyledItemDelegate::paint 再补画图像：它内部会再次
+        // initStyleOption 从模型重建 icon/text/features——外层清空的
+        // opt 会被覆盖，基类照画一遍 icon，自绘再画一遍 = 重影。
+        // 正确做法：自行构造 option（清除 icon/text 与特征位）后直接
+        // style->drawControl 只画背景/选中/hover，图像由本委托统一绘制。
         QStyleOptionViewItem opt = option;
         initStyleOption(&opt, index);
         const QIcon icon = opt.icon;
-        opt.icon = QIcon();   // 关键：基类也会画 icon（旧尺寸、顶部对齐），
-                              // 不清空会叠出「重影」——清空后由下方自绘接管
         opt.text.clear();
-        QStyledItemDelegate::paint(painter, opt, index);   // 背景/选中/hover
+        opt.icon = QIcon();
+        opt.features &= ~(QStyleOptionViewItem::HasDecoration
+                          | QStyleOptionViewItem::HasDisplay);
+        const QWidget *widget = opt.widget;
+        QStyle *style = widget ? widget->style() : QApplication::style();
+        style->drawControl(QStyle::CE_ItemViewItem, &opt, painter, widget);
         if (!icon.isNull())
             icon.paint(painter,
                        opt.rect.adjusted(kThumbPadding, kThumbPadding,
@@ -105,6 +114,9 @@ PhotoListPanel::PhotoListPanel(QWidget *parent)
     m_list->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_list->setContextMenuPolicy(Qt::CustomContextMenu);
     m_list->installEventFilter(this);   // Del 键拦截（eventFilter）
+    // 视口尺寸变化（含横向滚动条出现/消失挤压高度）→ 重标定 item 高度；
+    // 面板 resizeEvent 捕获不到这一类变化，必须挂在 viewport 上
+    m_list->viewport()->installEventFilter(this);
     // 空态提示
     m_list->setStyleSheet(QString());
     connect(m_list, &QListWidget::currentItemChanged, this,
@@ -169,18 +181,25 @@ void PhotoListPanel::setUndoEnabled(bool enabled)
     m_undoButton->setEnabled(enabled);
 }
 
-// item 高度 100% 自适应列表区域（用户指令），宽度固定 kItemWidth
+// item 高度 100% 自适应列表区域（用户指令），宽度固定 kItemWidth。
+// 注意：IconMode 下 QListView 会把 spacing 计入单元格尺寸，item 高度必须
+// 再减去 spacing（否则内容 = 视口 + spacing，超界产生纵向滚动范围，用户
+// 反馈「模块出现垂直滚动条」）；2px 为亚像素舍入余量。
 int PhotoListPanel::currentItemHeight() const
 {
-    const int h = m_list->viewport()->height();
+    const int h = m_list->viewport()->height() - m_list->spacing() - 2;
     return h > kThumbSize.height() ? h : kThumbSize.height();
 }
 
 void PhotoListPanel::updateItemHeights()
 {
     const QSize size(kItemWidth, currentItemHeight());
-    for (int i = 0; i < m_list->count(); ++i)
-        m_list->item(i)->setSizeHint(size);
+    // 幂等：高度变化会触发视口 resize，无变化时不再写回，避免来回震荡
+    for (int i = 0; i < m_list->count(); ++i) {
+        QListWidgetItem *item = m_list->item(i);
+        if (item->sizeHint() != size)
+            item->setSizeHint(size);
+    }
 }
 
 void PhotoListPanel::resizeEvent(QResizeEvent *event)
@@ -205,6 +224,11 @@ bool PhotoListPanel::eventFilter(QObject *watched, QEvent *event)
             }
             return true;
         }
+    }
+    // 视口尺寸变化 → 重标定 item 高度（排到下一拍等布局稳定）
+    if (watched == m_list->viewport() && event->type() == QEvent::Resize) {
+        QMetaObject::invokeMethod(this, &PhotoListPanel::updateItemHeights,
+                                  Qt::QueuedConnection);
     }
     return QWidget::eventFilter(watched, event);
 }
