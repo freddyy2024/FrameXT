@@ -144,6 +144,11 @@ void TitleBar::updateWatermarkEyeButton(bool hidden)
                                    : tr("纯看图（隐藏水印）"));
 }
 
+void TitleBar::updateEyeEnabled(bool enabled)
+{
+    m_eyeButton->setEnabled(enabled);
+}
+
 void TitleBar::updateMaximizeButton(bool maximized)
 {
     m_maxButton->setText(QString(QChar(maximized ? kGlyphRestore : kGlyphMaximize)));

@@ -1275,9 +1275,14 @@ void MainWindow::updateEmptyState()
         m_watermarkPanel->setEnabled(!empty);
     if (m_exportPanel)
         m_exportPanel->setHasPhotos(!empty);
+    // 👁 空态防呆：无照片时水印不存在，切换无意义（禁用而非可点无效果）
+    m_titleBar->updateEyeEnabled(!empty);
+    // 清空列表时残留的隐藏态一并复位（否则下次导入直接进入纯看图态）
+    if (empty && m_project->watermarkHidden())
+        m_project->setWatermarkHidden(false);
     m_importSummary->setText(empty
                                  ? tr("尚未导入照片")
-                                 : tr("已选 %1 张")
+                                 : tr("已导入 %1 张")
                                        .arg(m_project->documents().size()));
 }
 

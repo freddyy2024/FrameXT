@@ -2,6 +2,7 @@
 // 撤销单步/深度/跨照片、模板切换保留规则、批量应用组撤销、布局过滤。
 // controller 是纯 QObject + 值语义，QtCore 环境即可离屏测试。
 #include <QtTest>
+#include <QSignalSpy>
 
 #include "controllers/ProjectController.h"
 
@@ -76,6 +77,9 @@ private slots:
     void clearFieldOverride();
     // A14：不可见元素不进画布布局
     void invisibleElementNotInLayouts();
+    // 回归钉子：空项目切水印隐藏不崩（空 future finished 回调曾解引用
+    // 空结果存储——MSVC Debug 断言 cannot dereference map/set iterator）
+    void emptyProjectTogglesWatermarkHiddenSafely();
 
 private:
     // 等待防抖渲染静默（不渲染真实图片；非交互测试只关心状态）
@@ -308,6 +312,22 @@ void TestProjectController::invisibleElementNotInLayouts()
     for (const auto &entry : pc.elementLayouts())
         found |= (entry.first == custom.id);
     QVERIFY(!found);   // 隐藏元素不可命中（画布交互数据源过滤）
+}
+
+void TestProjectController::emptyProjectTogglesWatermarkHiddenSafely()
+{
+    ProjectController pc;
+    QVERIFY(pc.documents().isEmpty());
+    // 无文档切换水印开关 → renderNow 空分支 setFuture(空 QFuture)；
+    // 空 future 即 finished，watcher 回调曾直接 result() 解引用空结果
+    // 存储（Debug 断言崩溃）。修复后回调须有 resultCount 守卫，
+    // 且事件循环派发 finished 时不再崩。
+    QSignalSpy hiddenSpy(&pc, &ProjectController::watermarkHiddenChanged);
+    pc.setWatermarkHidden(true);
+    pc.setWatermarkHidden(false);
+    QCOMPARE(hiddenSpy.size(), 2);   // false→true、true→false 各发一次
+    drainDebounce();   // 派发空 future 的 finished（无守卫在此断言崩溃）
+    QVERIFY(pc.lastPreview().isNull());
 }
 
 QTEST_MAIN(TestProjectController)

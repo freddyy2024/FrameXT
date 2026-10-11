@@ -26,8 +26,10 @@ public:
     void updateMaximizeButton(bool maximized);
     // 启动回填：按持久化语言 key（"zh-CN"/"zh-TW"/"en"）刷新按钮文本
     void updateLanguageButton(const QString &code);
-    // 纯看图态同步（👁 按钮选中态刷新，避免按住对比原图时的状态漂移）
+    // 纯看图态同步（👁 按钮选中态刷新）
     void updateWatermarkEyeButton(bool hidden);
+    // 空态防呆：无照片时 👁 不可交互（水印不存在，切换无意义）
+    void updateEyeEnabled(bool enabled);
 
 signals:
     void minimizeClicked();

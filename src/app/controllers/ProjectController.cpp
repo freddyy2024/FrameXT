@@ -32,6 +32,13 @@ ProjectController::ProjectController(QObject *parent)
     m_renderWatcher = new QFutureWatcher<RenderResult>(this);
     connect(m_renderWatcher, &QFutureWatcher<RenderResult>::finished, this,
             [this] {
+                // 空 future 守卫（必须在最前）：无图分支 setFuture(空 QFuture)
+                // 作废在途结果——空 future 本身即 finished 态，watcher 照常发
+                // finished，此时 result() 会在空结果存储上解引用迭代器
+                // （MSVC Debug 断言：cannot dereference value-initialized
+                // map/set iterator，无图时切水印开关必现）
+                if (m_renderWatcher->future().resultCount() < 1)
+                    return;
                 const quint64 gen = m_watcherGeneration;
                 const RenderResult result = m_renderWatcher->result();
                 if (gen != m_renderGeneration)
