@@ -106,9 +106,12 @@ void TestRender::canvasPlanEdgeSizes() const
     const CanvasPlan bad = CanvasGeometry::plan(QLatin1String(kBottom), {0, 0});
     QVERIFY(bad.canvasSize.isEmpty());
 
-    // 未知模板 → 空 plan
+    // 未知模板 id 回落 bottom spec（M5.2 宽容语义：删除模板后照片
+    // 回落默认样式）；plan 与内置 bottom 逐字段一致
     const CanvasPlan unknown = CanvasGeometry::plan(QStringLiteral("custom"), {6000, 4000});
-    QVERIFY(unknown.canvasSize.isEmpty());
+    const CanvasPlan fallback = CanvasGeometry::plan(QLatin1String(kBottom), {6000, 4000});
+    QCOMPARE(unknown.canvasSize, fallback.canvasSize);
+    QCOMPARE(unknown.photoRect, fallback.photoRect);
 }
 
 void TestRender::canvasPlanBlur() const

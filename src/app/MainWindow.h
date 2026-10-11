@@ -70,6 +70,7 @@ private:
     void refreshWatermarkPanel();
     void syncTemplateCombo();   // 模板下拉回同步（切照片/撤销后）
     void syncTemplateSliders();   // 高频模板参数滑杆回同步（M5.1）
+    void onTemplateListChanged();   // 模板增删后：失效文档回落 + 下拉重建
     void runBatchApply(ApplyScope scope);   // §5.5 确认框+应用+toast
     void showElementContextMenu(const QUuid &elementId, const QPoint &globalPos);
     void showToast(const QString &text);

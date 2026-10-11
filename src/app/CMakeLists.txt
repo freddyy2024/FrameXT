@@ -5,6 +5,7 @@ qt_add_executable(framext WIN32
     main.cpp
     MainWindow.h MainWindow.cpp
     TitleBar.h TitleBar.cpp
+    TemplateManagerDialog.h TemplateManagerDialog.cpp
     Theme.h
     controllers/ProjectController.h controllers/ProjectController.cpp
     controllers/ImportController.h controllers/ImportController.cpp

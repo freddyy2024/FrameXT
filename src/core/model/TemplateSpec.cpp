@@ -1,8 +1,15 @@
 #include "model/TemplateSpec.h"
 
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QStandardPaths>
+#include <QUuid>
+
+#include <algorithm>
 
 namespace fxt {
 
@@ -133,12 +140,121 @@ QList<TemplateSpec> builtinSpecs()
     return { bottomSpec(), aroundSpec(), blurSpec() };
 }
 
+namespace {
+
+QString &userDir()
+{
+    static QString s_dir = [] {
+        const QString base =
+            QStandardPaths::writableLocation(
+                QStandardPaths::AppLocalDataLocation);
+        return base + QLatin1String("/templates");
+    }();
+    return s_dir;
+}
+
+QList<TemplateSpec> loadUserTemplates()
+{
+    QList<TemplateSpec> out;
+    QDir dir(userDir());
+    if (!dir.exists())
+        return out;
+    // JSON 文件名即模板 id（save 时落 <id>.json），固定 .ftpl 扩展名分享由
+    // M5.3 导入导出负责；此处只认自家 *.json
+    for (const QFileInfo &info :
+         dir.entryInfoList({ QStringLiteral("*.json") }, QDir::Files,
+                           QDir::Name)) {
+        QFile f(info.absoluteFilePath());
+        if (!f.open(QIODevice::ReadOnly))
+            continue;
+        bool ok = false;
+        const TemplateSpec s = specFromJson(f.readAll(), &ok);
+        if (ok)
+            out.append(s);
+    }
+    std::sort(out.begin(), out.end(),
+              [](const TemplateSpec &a, const TemplateSpec &b) {
+                  return a.name.localeAwareCompare(b.name) < 0;
+              });
+    return out;
+}
+
+// 用户模板内存缓存（specFor 渲染每帧调用，不能读盘）。
+// 写操作（save/delete/setDir）后 refresh。
+QList<TemplateSpec> &userCache()
+{
+    static QList<TemplateSpec> s_cache = loadUserTemplates();
+    return s_cache;
+}
+
+void refreshUserCache() { userCache() = loadUserTemplates(); }
+
+} // namespace
+
+QList<TemplateSpec> allSpecs()
+{
+    QList<TemplateSpec> out = builtinSpecs();
+    out.append(userCache());
+    return out;
+}
+
 TemplateSpec specFor(const QString &templateId)
 {
     for (const TemplateSpec &s : builtinSpecs())
         if (s.id == templateId)
             return s;
-    return bottomSpec();   // 未知 id 回落（含空 id；调用方无需判空）
+    for (const TemplateSpec &s : userCache())
+        if (s.id == templateId)
+            return s;
+    return bottomSpec();   // 未知 id 回落（含空/已删除 id；宽容处理）
+}
+
+void setUserTemplatesDir(const QString &dir)
+{
+    userDir() = dir;
+    refreshUserCache();
+}
+
+QString userTemplatesDir() { return userDir(); }
+
+QString saveUserTemplate(const TemplateSpec &spec)
+{
+    TemplateSpec out = spec;
+    out.builtin = false;
+    if (out.id.isEmpty()) {
+        out.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    } else if (out.id == QLatin1String("bottom")
+               || out.id == QLatin1String("around")
+               || out.id == QLatin1String("blur")) {
+        return {};   // 内置 id 不可覆盖（另存为必须生成新 id）
+    }
+    QDir dir(userDir());
+    if (!dir.exists())
+        QDir().mkpath(userDir());
+    QFile f(dir.filePath(out.id + QLatin1String(".json")));
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        return {};
+    f.write(specToJson(out));
+    // ⚠️ 必须 close 落盘再刷新缓存：Qt6 Windows 文件引擎对写入持有
+    // 内存缓冲（close/flush 才写盘），先 refresh 会读到空文件、解析
+    // 失败静默跳过（探针实证：二次 setDir 后才可见）
+    f.close();
+    refreshUserCache();
+    return out.id;
+}
+
+bool deleteUserTemplate(const QString &templateId)
+{
+    if (templateId == QLatin1String("bottom")
+        || templateId == QLatin1String("around")
+        || templateId == QLatin1String("blur"))
+        return false;
+    const bool removed =
+        QFile::remove(QDir(userDir()).filePath(templateId
+                                               + QLatin1String(".json")));
+    if (removed)
+        refreshUserCache();
+    return removed;
 }
 
 QByteArray specToJson(const TemplateSpec &spec, int schemaVersion)

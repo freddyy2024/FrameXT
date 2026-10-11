@@ -1,8 +1,10 @@
-// M5.1 模板参数化测试：参数声明/JSON 往返/画布几何参数覆盖/缓存键安全。
-// 黄金图一致性（默认参数 = 旧常量）由既有 test_golden 零改动全绿背书。
+// M5.1/M5.2 模板参数化与模板管理测试：参数声明/JSON 往返/画布几何参数
+// 覆盖/用户模板持久化闭环/kind 解算。黄金图一致性（默认参数 = 旧常量）
+// 由既有 test_golden 零改动全绿背书。
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QTemporaryDir>
 #include <QtTest>
 
 #include "model/TemplateSpec.h"
@@ -118,11 +120,14 @@ private slots:
         QCOMPARE(plan.canvasSize, legacy.canvasSize);
     }
 
-    // 未知模板 + 空尺寸 → 空 plan（防御路径不回归）
+    // 未知模板 id 回落 bottom spec（删除模板后照片回落默认样式的宽容
+    // 语义，M5.2 起）；空尺寸仍为空 plan（防御路径不回归）
     void invalidInputsProduceEmptyPlan()
     {
-        QVERIFY(CanvasGeometry::plan(QStringLiteral("nope"), landscape())
-                    .canvasSize.isEmpty());
+        QCOMPARE(CanvasGeometry::plan(QStringLiteral("nope"), landscape())
+                     .canvasSize,
+                 CanvasGeometry::plan(QStringLiteral("bottom"), landscape())
+                     .canvasSize);
         QVERIFY(CanvasGeometry::plan(QStringLiteral("bottom"), QSize())
                     .canvasSize.isEmpty());
     }
@@ -186,6 +191,101 @@ private slots:
             QVERIFY2(ok, qPrintable(f.fileName()));
             QVERIFY2(parsed == s, qPrintable(f.fileName()));
         }
+    }
+
+    // M5.2 用户模板闭环：保存 → 目录扫描 → specFor → 删除。
+    // 临时目录注入（不污染真实 %APPDATA%）
+    void userTemplateSaveLoadDelete()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        TemplateCatalog::setUserTemplatesDir(dir.path());
+        QCOMPARE(TemplateCatalog::allSpecs().size(), 3);   // 干净起点
+
+        // 保存：id 空 → 生成 UUID；builtin 标记被强制为 false
+        TemplateSpec mine = TemplateCatalog::specFor(QStringLiteral("blur"));
+        mine.id.clear();
+        mine.name = QStringLiteral("我的拍立得");
+        const QString id = TemplateCatalog::saveUserTemplate(mine);
+        QVERIFY(!id.isEmpty());
+        QVERIFY(id != QLatin1String("blur"));
+
+        // 读取闭环：allSpecs 含用户模板且排在内置之后；specFor 命中
+        const QList<TemplateSpec> all = TemplateCatalog::allSpecs();
+        QCOMPARE(all.size(), 4);
+        QCOMPARE(all.last().id, id);
+        QVERIFY(!all.last().builtin);
+        QCOMPARE(TemplateCatalog::specFor(id).name, QStringLiteral("我的拍立得"));
+
+        // 再存一份 + 同 id 覆盖（保存修改语义）
+        TemplateSpec mine2 = mine;
+        mine2.name = QStringLiteral("重命名模板");
+        mine2.id = id;
+        QCOMPARE(TemplateCatalog::saveUserTemplate(mine2), id);
+        QCOMPARE(TemplateCatalog::allSpecs().size(), 4);   // 覆盖不新增
+        QCOMPARE(TemplateCatalog::specFor(id).name,
+                 QStringLiteral("重命名模板"));
+
+        // 内置 id 不可被用户模板覆盖
+        TemplateSpec fake = mine;
+        fake.id = QStringLiteral("bottom");
+        QVERIFY(TemplateCatalog::saveUserTemplate(fake).isEmpty());
+
+        // 删除闭环；未知 id 删除返回 false
+        QVERIFY(TemplateCatalog::deleteUserTemplate(id));
+        QVERIFY(!TemplateCatalog::deleteUserTemplate(id));
+        QVERIFY(!TemplateCatalog::deleteUserTemplate(QStringLiteral("blur")));
+        QCOMPARE(TemplateCatalog::allSpecs().size(), 3);
+        // 已删除 id 回落 bottom（宽容，不崩）
+        QCOMPARE(TemplateCatalog::specFor(id).kind, QStringLiteral("bottom"));
+
+        TemplateCatalog::setUserTemplatesDir(
+            QStringLiteral("/nonexistent-fxt-reset"));
+    }
+
+    // 用户模板 id 的几何按 kind 解算（M5.2 CanvasGeometry 关键接线）：
+    // kind=blur 的用户模板 id 必须走 blur 分支（圆角/roundedPhoto），
+    // 参数覆盖与内置 blur 同语义
+    void userTemplateIdResolvesByKind()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        TemplateCatalog::setUserTemplatesDir(dir.path());
+
+        TemplateSpec mine = TemplateCatalog::specFor(QStringLiteral("blur"));
+        mine.id.clear();
+        mine.name = QStringLiteral("模糊变体");
+        const QString id = TemplateCatalog::saveUserTemplate(mine);
+        QVERIFY(!id.isEmpty());
+
+        // 默认参数：与内置 blur plan 逐字段一致（id 不同、kind 相同）
+        const CanvasPlan builtin =
+            CanvasGeometry::plan(QStringLiteral("blur"), landscape());
+        const CanvasPlan user = CanvasGeometry::plan(id, landscape());
+        QCOMPARE(user.canvasSize, builtin.canvasSize);
+        QCOMPARE(user.photoRect, builtin.photoRect);
+        QCOMPARE(user.roundedPhoto, builtin.roundedPhoto);
+        QVERIFY(qFuzzyCompare(user.cornerRadius + 1.0,
+                              builtin.cornerRadius + 1.0));
+
+        // 参数覆盖走用户 id 同样生效
+        QVariantMap params;
+        params.insert(QStringLiteral("blurCornerRadiusRatio"), 0.04);
+        const CanvasPlan tuned = CanvasGeometry::plan(id, landscape(), params);
+        QVERIFY(qFuzzyCompare(tuned.cornerRadius, 0.04 * 3000));
+
+        // 非法 kind 的模板包：显式空 plan（不猜测几何）
+        TemplateSpec bogus;
+        bogus.id = QStringLiteral("bogus");
+        bogus.kind = QStringLiteral("weird");
+        bogus.name = QStringLiteral("bad");
+        const QString bogusId = TemplateCatalog::saveUserTemplate(bogus);
+        QVERIFY(!bogusId.isEmpty());
+        QVERIFY(CanvasGeometry::plan(bogusId, landscape())
+                    .canvasSize.isEmpty());
+
+        TemplateCatalog::setUserTemplatesDir(
+            QStringLiteral("/nonexistent-fxt-reset"));
     }
 };
 

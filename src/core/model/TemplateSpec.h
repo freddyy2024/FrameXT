@@ -37,11 +37,23 @@ struct TemplateSpec
     bool operator==(const TemplateSpec &) const = default;
 };
 
-// 模板注册表（M5.1 = 内置三模板；5.2 起并入用户模板目录扫描）
+// 模板注册表（M5.2：内置三模板 + 用户模板 %APPDATA%/templates/*.json）。
+// 用户模板 = 内置 kind + 参数集（元素行组编辑挂账，需行组一等存储前置）。
+// specFor 渲染每帧调用——用户模板带内存缓存，写操作后 refresh。
 namespace TemplateCatalog {
 
 QList<TemplateSpec> builtinSpecs();
+// 内置 + 用户模板（用户模板按 name 排序在后）
+QList<TemplateSpec> allSpecs();
 TemplateSpec specFor(const QString &templateId);   // 未知 id 回落 bottom
+
+// 用户模板持久化。目录缺省 = QStandardPaths::AppLocalDataLocation
+// /templates；测试注入临时目录（内存缓存同步失效）。
+void setUserTemplatesDir(const QString &dir);
+QString userTemplatesDir();
+// 保存（id 已存在则覆盖；新模板 id 为空时生成 UUID）。返回实际 id。
+QString saveUserTemplate(const TemplateSpec &spec);
+bool deleteUserTemplate(const QString &templateId);   // 内置 id 返回 false
 
 // 模板 JSON（schemaVersion=1）：
 // { "schemaVersion": 1, "id", "kind", "name", "builtin",

@@ -5,6 +5,7 @@
 #include "render/BackdropRenderer.h"
 #include "render/BuiltinTemplates.h"
 #include "render/CanvasGeometry.h"
+#include "model/TemplateSpec.h"
 #include "render/ElementPainter.h"
 #include "render/LayoutEngine.h"
 #include "render/PhotoDecoder.h"
@@ -61,7 +62,10 @@ RenderResult RenderPipeline::run(const RenderRequest &request,
     RenderResult result;
 
     // —— 入口防御：未知模板 / 超大图显式报错（§10.4 红线，绝不静默废图）——
-    if (!CanvasGeometry::isBuiltin(request.templateState.templateId)) {
+    // M5.2 起目录含用户模板：按「specFor 命中」放行（isBuiltin 会误杀
+    // 用户模板 id）；未命中（拼写错误/已删除）仍显式报错
+    if (TemplateCatalog::specFor(request.templateState.templateId).id
+        != request.templateState.templateId) {
         result.error = QStringLiteral("未知模板：%1").arg(request.templateState.templateId);
         return result;
     }
@@ -101,8 +105,11 @@ RenderResult RenderPipeline::run(const RenderRequest &request,
     const QString key = backdropKey(request, plan);
     QImage backdrop = cache->backdrop(key);
     if (backdrop.isNull()) {
+        // kind 而非 id：用户模板（M5.2）id ≠ kind，blur 判定按 kind
         backdrop = BackdropRenderer::backdrop(
-            plan, request.templateState.templateId, decoded.image,
+            plan, TemplateCatalog::specFor(request.templateState.templateId)
+                      .kind,
+            decoded.image,
             CanvasGeometry::paramOf(request.templateState.templateParams,
                                     "blurStrength", 1.0));
         // 导出图不写入共享预览缓存：单张导出底图 ≈180MB 会挤掉全部预览条目

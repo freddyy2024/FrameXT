@@ -2,12 +2,14 @@
 
 #include "AppInfo.h"
 #include "GlyphButton.h"
+#include "TemplateManagerDialog.h"
 #include "Theme.h"
 #include "TitleBar.h"
 #include "canvas/PreviewCanvas.h"
 #include "controllers/ExportController.h"
 #include "controllers/ImportController.h"
 #include "controllers/ProjectController.h"
+#include "model/TemplateSpec.h"
 #include "panels/BasicInfoPanel.h"
 #include "panels/ExportPanel.h"
 #include "panels/PhotoListPanel.h"
@@ -584,14 +586,13 @@ QWidget *MainWindow::buildRightPanel()
     templateLayout->setContentsMargins(12, 10, 12, 12);
     templateLayout->setSpacing(8);
     m_templateCombo = new QComboBox(templateContent);
-    m_templateCombo->addItem(tr("底部边框"), QStringLiteral("bottom"));
-    m_templateCombo->addItem(tr("环绕边框"), QStringLiteral("around"));
-    m_templateCombo->addItem(tr("高斯模糊"), QStringLiteral("blur"));
+    // 模板项由 syncTemplateCombo 动态填充（内置 + 用户模板，M5.2）
     connect(m_templateCombo, &QComboBox::activated, this, [this](int index) {
         const QString id = m_templateCombo->itemData(index).toString();
         if (!id.isEmpty())
             m_project->setTemplateId(id);
     });
+    syncTemplateCombo();
     templateLayout->addWidget(m_templateCombo);
 
     // —— 高频模板参数滑杆（M5.1，04-UI §G-H：随模板联动显示 1-2 个；
@@ -644,6 +645,18 @@ QWidget *MainWindow::buildRightPanel()
     });
 
     templateLayout->addStretch();
+
+    // 模板管理器入口（M5.2，04-UI §3.5/§6）
+    auto *manageButton = new QPushButton(tr("模板管理…"), templateContent);
+    manageButton->setObjectName("secondaryButton");
+    connect(manageButton, &QPushButton::clicked, this, [this] {
+        TemplateManagerDialog dialog(m_project, this);
+        connect(&dialog, &TemplateManagerDialog::templateListChanged, this,
+                &MainWindow::onTemplateListChanged);
+        dialog.exec();
+    });
+    templateLayout->addWidget(manageButton);
+
     templateContent->setEnabled(false);
     layout->addWidget(createCard(tr("模板"), QString(), templateContent));
 
@@ -701,18 +714,41 @@ void MainWindow::refreshBasicInfo()
 
 void MainWindow::syncTemplateCombo()
 {
-    // 回同步：切照片/撤销后下拉必须反映当前文档的模板
-    // （activated 只在用户改选时触发，同项点击不回发——回设不改状态）
+    // 动态重建（M5.2）：内置 + 用户模板；回同步当前文档模板。
+    // activated 只在用户改选时触发，程序性 rebuild 不回发。
+    QSignalBlocker blocker(m_templateCombo);
+    m_templateCombo->clear();
+    for (const TemplateSpec &s : TemplateCatalog::allSpecs())
+        m_templateCombo->addItem(
+            s.builtin ? tr("%1　· 内置").arg(s.name) : s.name, s.id);
+
     const PhotoDocument *doc = m_project->current();
     const QString id =
         doc ? doc->templateState.templateId : QStringLiteral("bottom");
-    for (int i = 0; i < m_templateCombo->count(); ++i) {
-        if (m_templateCombo->itemData(i).toString() == id) {
-            QSignalBlocker blocker(m_templateCombo);
-            m_templateCombo->setCurrentIndex(i);
-            return;
-        }
+    const int index = m_templateCombo->findData(id);
+    if (index >= 0) {
+        m_templateCombo->setCurrentIndex(index);
+    } else {
+        // 当前模板已被删除：显式占位（不静默回落，用户可见异常并可改选）
+        m_templateCombo->addItem(tr("（模板已删除）"), id);
+        m_templateCombo->setCurrentIndex(m_templateCombo->count() - 1);
     }
+}
+
+void MainWindow::onTemplateListChanged()
+{
+    // 删除模板后兑现「照片回落默认样式」承诺：当前文档引用的模板 id
+    // 已不在目录（内置+用户）时改回 bottom（渲染入口对死 id 会显式
+    // 报错，回落避免预览挂错误）。setTemplateId 走正常应用路径（重置
+    // 元素树与参数），用户可从撤销栈返回——此时模板文件已删，重做/
+    // 恢复引用若再报错由 renderError toast 兜底。
+    const PhotoDocument *doc = m_project->current();
+    if (doc && TemplateCatalog::specFor(doc->templateState.templateId).id
+                   != doc->templateState.templateId) {
+        m_project->setTemplateId(QStringLiteral("bottom"));
+        return;   // setTemplateId 触发 documentChanged → syncTemplateCombo
+    }
+    syncTemplateCombo();
 }
 
 void MainWindow::syncTemplateSliders()

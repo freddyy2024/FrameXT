@@ -5,6 +5,7 @@
 
 #include "metadata/BrandRegistry.h"
 #include "metadata/FieldRegistry.h"
+#include "model/TemplateSpec.h"
 #include "render/BuiltinTemplates.h"
 #include "render/CanvasGeometry.h"
 
@@ -247,9 +248,12 @@ void ProjectController::setTemplateId(const QString &templateId)
     }
 
     const BuiltinTemplates::BuiltinSpec spec =
-        BuiltinTemplates::defaultSpec(templateId);
+        BuiltinTemplates::defaultSpec(
+            TemplateCatalog::specFor(templateId).kind);
     doc->templateState.templateId = templateId;
-    doc->templateState.templateParams.clear();
+    // 参数初值 = 模板声明默认（用户模板即其保存的参数集；内置模板 = 视觉常量）
+    doc->templateState.templateParams =
+        TemplateCatalog::specFor(templateId).defaultParams();
 
     QList<Element> merged = spec.elements;
     for (Element &el : merged) {
