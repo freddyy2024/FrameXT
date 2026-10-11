@@ -27,9 +27,6 @@ public:
 private:
     QLabel *makeValueLabel();
     void buildRows();
-    void setRow(const char *fieldKey, const QString &label,
-                QLabel *valueLabel, const QHash<QString, QString> &fields,
-                bool hasPhoto);
     void copyAll();
 
     QStackedWidget *m_body = nullptr;   // page 0 = 空态提示 / page 1 = 参数表

@@ -128,42 +128,18 @@ void BasicInfoPanel::buildRows()
     addRow(tr("软件"))->fieldKey = QStringLiteral("software");
 }
 
-void BasicInfoPanel::setRow(const char *fieldKey, const QString &,
-                            QLabel *valueLabel,
-                            const QHash<QString, QString> &fields,
-                            bool hasPhoto)
-{
-    const QString value =
-        hasPhoto ? fields.value(QLatin1String(fieldKey)) : QString();
-    valueLabel->setText(value.isEmpty() ? QStringLiteral("—") : value);
-}
-
 void BasicInfoPanel::setFields(const QHash<QString, QString> &fields,
                                bool hasPhoto)
 {
-    // fieldKey 与 buildRows 的注册顺序一一对应（同源生成，防漂移）
-    const char *keys[] = {
-        "make", "model", "dateTime", "iso", "shutter", "fNumber",
-        "exposureComp", "meteringMode", "flash", "whiteBalance",
-        "lens", "focalLength", "focalLengthEq",
-        "gpsLatitude", "gpsLongitude", "gpsAltitude",
-        "fujiFilmSimulation", "sonyCreativeStyle", "nikonPictureControl",
-        "software",
-    };
-    const char *labels[] = {
-        "make", "model", "dateTime", "iso", "shutter", "fNumber",
-        "exposureComp", "meteringMode", "flash", "whiteBalance",
-        "lens", "focalLength", "focalLengthEq",
-        "gpsLatitude", "gpsLongitude", "gpsAltitude",
-        "fujiFilmSimulation", "sonyCreativeStyle", "nikonPictureControl",
-        "software",
-    };
-    Q_UNUSED(labels);
-    const int expected = int(sizeof(keys) / sizeof(keys[0]));
-    if (m_rows.size() != expected)
-        return;   // 结构漂移防御（buildRows 与 keys 必须同步）
-    for (int i = 0; i < expected; ++i)
-        setRow(keys[i], QString(), m_rows[i].value, fields, hasPhoto);
+    // 直接按行注册的 fieldKey 取值（单一事实源）。此前另有平行 keys[]
+    // 数组 + 行数校验的「防漂移」防御——增删行时两处必须同步，漏改
+    // 即静默不刷新（本条注释即该回归的教训：删 6 行后防御 return，
+    // 面板永远停在空态提示）
+    for (const Row &row : qAsConst(m_rows)) {
+        const QString value =
+            hasPhoto ? fields.value(row.fieldKey) : QString();
+        row.value->setText(value.isEmpty() ? QStringLiteral("—") : value);
+    }
     m_body->setCurrentIndex(hasPhoto ? 1 : 0);   // 有照片显示参数表，否则空态提示
 }
 
