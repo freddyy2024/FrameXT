@@ -262,6 +262,12 @@ QListWidget::item:hover {
     background: #F3F4F7;
 }
 
+/* 照片缩略图条：margin 归零（项间分隔由 QListView spacing 提供，
+   delegate 按完整 item rect 居中绘制图像，margin 会造成背景与图像错位） */
+#photoThumbList::item {
+    margin: 0px;
+}
+
 QListWidget::item:selected {
     background: #EFEBFD;
     color: #1F2329;

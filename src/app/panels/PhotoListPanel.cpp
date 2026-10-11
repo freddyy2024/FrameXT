@@ -95,6 +95,8 @@ PhotoListPanel::PhotoListPanel(QWidget *parent)
     // 缩略图显示区：自绘 delegate 等比居中（QIcon::paint KeepAspectRatio+AlignCenter）
     m_list->setIconSize(kThumbSize);
     m_list->setItemDelegate(new ThumbDelegate(m_list));
+    // 项间距（用户反馈：无间距时相邻缩略图的图像区连成一片，看似一张项里两张图）
+    m_list->setSpacing(6);
     m_list->setDragEnabled(false);
     m_list->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_list->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
