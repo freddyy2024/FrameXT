@@ -67,11 +67,14 @@ void TestBrand::makeAliasMatching() const
 
 void TestBrand::omSystemScenarios() const
 {
-    // 修 #13：OM Digital Solutions → OM System 展示（Olympus Logo）
+    // 修 #13：OM Digital Solutions → OM System 展示（M5.5 起为官方
+    // OM SYSTEM 方形徽标，替换旧 OLYMPUS 文字标）
     const BrandDef om = BrandRegistry::match(
         QStringLiteral("OM Digital Solutions"), QStringLiteral("OM-1 Mark II"));
     QCOMPARE(om.value, QStringLiteral("Olympus"));
     QCOMPARE(om.label, QStringLiteral("OM System"));
+    QCOMPARE(om.logoPath,
+             QStringLiteral(":/logos/camera/omsystem-logo-1280-1280.png"));
     // 旧机型 make=OLYMPUS
     QCOMPARE(BrandRegistry::match(QStringLiteral("OLYMPUS CORPORATION"),
                                   QStringLiteral("E-M1 Mark III"))
@@ -108,11 +111,12 @@ void TestBrand::unmatchedFallsBackToOthers() const
 
 void TestBrand::panasonicShowsLumix() const
 {
-    // 反馈源：松下 Logo 应为 LUMIX（展示文本层）
+    // 反馈源 R3（5 赞）：松下 Logo 应为 LUMIX 标而非 Panasonic 集团标
     const BrandDef p = BrandRegistry::match(QStringLiteral("Panasonic"),
                                             QStringLiteral("DC-S5"));
     QCOMPARE(p.label, QStringLiteral("LUMIX"));
-    QVERIFY(p.logoPath.contains(QStringLiteral("panasonic")));
+    QCOMPARE(p.logoPath,
+             QStringLiteral(":/logos/camera/lumix-logo-1920-438.png"));
 }
 
 // —— M5.4 数据源接线 ——

@@ -23,12 +23,14 @@
         <file alias="chevron-up.png">resources/icons/chevron-up.png</file>
     </qresource>
     <qresource prefix="/fonts">
-        <file alias="AlibabaPuHuiTi-3-55-Regular.ttf">resources/fonts/AlibabaPuHuiTi-3-55-Regular.ttf</file>
+        <file alias="SourceHanSansSC-Regular.otf">resources/fonts/SourceHanSansSC-Regular.otf</file>
     </qresource>
     <qresource prefix="/logos/camera">
         <file alias="Canon_1440_301.png">resources/logos/camera/Canon_1440_301.png</file>
         <file alias="Nikon-700-700.png">resources/logos/camera/Nikon-700-700.png</file>
         <file alias="Olympus-Logo-1440-331.png">resources/logos/camera/Olympus-Logo-1440-331.png</file>
+        <file alias="omsystem-logo-1280-1280.png">resources/logos/camera/omsystem-logo-1280-1280.png</file>
+        <file alias="lumix-logo-1920-438.png">resources/logos/camera/lumix-logo-1920-438.png</file>
         <file alias="Pentax_Logo-662-133.png">resources/logos/camera/Pentax_Logo-662-133.png</file>
         <file alias="Phase_One_logo-1280-177.png">resources/logos/camera/Phase_One_logo-1280-177.png</file>
         <file alias="dji-logo-700-413.png">resources/logos/camera/dji-logo-700-413.png</file>

@@ -38,11 +38,14 @@ QList<BrandDef> makeBuiltin()
           { QStringLiteral("OM-1"), QStringLiteral("OM-5"), QStringLiteral("OM-D"),
             QStringLiteral("E-M1"), QStringLiteral("E-M5"), QStringLiteral("E-M10"),
             QStringLiteral("PEN") },
-          QStringLiteral(":/logos/camera/Olympus-Logo-1440-331.png") },
+          // M5.5 资产复核（R3）：OM Digital 机器显示官方现行 OM SYSTEM
+          // 方形徽标，替换旧 OLYMPUS 文字标
+          QStringLiteral(":/logos/camera/omsystem-logo-1280-1280.png") },
         { QStringLiteral("Panasonic"), QStringLiteral("LUMIX"),
           { QStringLiteral("Panasonic"), QStringLiteral("LUMIX") },
           { QStringLiteral("DC-"), QStringLiteral("DMC-") },
-          QStringLiteral(":/logos/camera/panasonic-logo-1440-228.png") },
+          // R3（5 赞）：相机产品线显示 LUMIX 标而非 Panasonic 集团标
+          QStringLiteral(":/logos/camera/lumix-logo-1920-438.png") },
         { QStringLiteral("Leica"), QStringLiteral("Leica"),
           { QStringLiteral("Leica") }, {}, QStringLiteral(":/logos/camera/leica-logo-700-700.png") },
         { QStringLiteral("Hasselblad"), QStringLiteral("Hasselblad"),

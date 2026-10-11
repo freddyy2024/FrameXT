@@ -49,11 +49,14 @@ int main(int argc, char *argv[])
     if (qss.open(QIODevice::ReadOnly | QIODevice::Text))
         app.setStyleSheet(QString::fromUtf8(qss.readAll()));
 
-    // 全局字体：阿里巴巴普惠体 55 Regular（用户指令），随资源嵌入、
+    // 全局字体：思源黑体 SC Regular（M5.5 资产复核：原普惠体许可不明
+    // ——仅「免费商用」简短声明、TTF 内嵌 All rights reserved、无具面
+    // 嵌入/再分发条款，按不可随软件分发处理；换 SIL OFL 1.1 的等价款，
+    // 许可全文随包 licenses/SOURCE-HAN-SANS-LICENSE.txt）。随资源嵌入、
     // 无需系统安装；QSS 全局 font-family 同步引用（缺字回退微软雅黑）
     const int brandFontId = QFontDatabase::addApplicationFont(
-        QStringLiteral(":/fonts/AlibabaPuHuiTi-3-55-Regular.ttf"));
-    QString brandFamily = QStringLiteral("Alibaba PuHuiTi 3.0");
+        QStringLiteral(":/fonts/SourceHanSansSC-Regular.otf"));
+    QString brandFamily = QStringLiteral("Source Han Sans SC");
     if (brandFontId < 0) {
         // 嵌入失败（资源损坏等）回退系统字体，界面仍可用
         brandFamily = QStringLiteral("Microsoft YaHei UI");
