@@ -101,6 +101,7 @@ private:
     PhotoListPanel *m_photoList = nullptr;
     WatermarkPanel *m_watermarkPanel = nullptr;
     PreviewCanvas *m_canvas = nullptr;
+    QToolButton *m_undoButton = nullptr;   // 画布工具条撤销（用户指令：不在列表模块）
     QLabel *m_canvasHint = nullptr;      // 底部工具条提示
     QComboBox *m_templateCombo = nullptr;
     QLabel *m_importSummary = nullptr;   // 左栏导入状态行

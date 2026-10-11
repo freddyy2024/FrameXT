@@ -74,7 +74,7 @@ PhotoListPanel::PhotoListPanel(QWidget *parent)
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    // —— 标题栏：标题 + 状态行（浅色）+ 撤销/清空图标按钮 ——
+    // —— 标题栏：标题 + 状态行（浅色）+ 清空图标按钮 ——
     auto *header = new QWidget(this);
     header->setObjectName(QStringLiteral("panelHeader"));
     header->setFixedHeight(32);
@@ -87,11 +87,6 @@ PhotoListPanel::PhotoListPanel(QWidget *parent)
     m_summary->setObjectName(QStringLiteral("panelCount"));
     headerLayout->addWidget(m_summary);
     headerLayout->addStretch();
-    m_undoButton = createGlyphButton(header, QStringLiteral("toolGlyph"),
-                                     0xE7A7,   // Undo
-                                     tr("撤销上一步（Ctrl+Z）"));
-    m_undoButton->setEnabled(false);
-    headerLayout->addWidget(m_undoButton);
     m_clearButton = createGlyphButton(header, QStringLiteral("toolGlyph"),
                                       0xE74D,   // Delete
                                       tr("清空列表"));
@@ -133,8 +128,6 @@ PhotoListPanel::PhotoListPanel(QWidget *parent)
             &PhotoListPanel::showContextMenu);
     layout->addWidget(m_list, 1);
 
-    connect(m_undoButton, &QToolButton::clicked, this,
-            &PhotoListPanel::undoRequested);
     connect(m_clearButton, &QToolButton::clicked, this,
             &PhotoListPanel::clearRequested);
 }
@@ -180,11 +173,6 @@ void PhotoListPanel::setCurrent(const QUuid &id)
         m_list->setCurrentItem(item);
     }
     updateSummary();
-}
-
-void PhotoListPanel::setUndoEnabled(bool enabled)
-{
-    m_undoButton->setEnabled(enabled);
 }
 
 // item 高度 100% 自适应列表区域（用户指令），宽度固定 kItemWidth。

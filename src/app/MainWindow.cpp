@@ -299,7 +299,7 @@ void MainWindow::buildUi()
                 m_canvas->setElementLayouts(m_project->elementLayouts());
             });
     connect(m_project, &ProjectController::undoAvailabilityChanged, this,
-            [this](bool avail) { m_photoList->setUndoEnabled(avail); });
+            [this](bool avail) { m_undoButton->setEnabled(avail); });
     connect(m_project, &ProjectController::watermarkHiddenChanged, this,
             [this](bool hidden) {
                 m_canvas->setWatermarkHiddenHint(hidden);
@@ -328,10 +328,6 @@ void MainWindow::buildUi()
             });
     connect(m_photoList, &PhotoListPanel::clearRequested, this,
             &MainWindow::confirmClear);
-    connect(m_photoList, &PhotoListPanel::undoRequested, this, [this] {
-        m_project->undo();
-        refreshWatermarkPanel();   // 撤销可能回退元素树结构
-    });
 
     // —— 全局快捷键（§7.2：撤销；列表 Del 由面板 eventFilter 处理）——
     auto *undoShortcut = new QShortcut(QKeySequence::Undo, this);
@@ -501,13 +497,24 @@ QWidget *MainWindow::buildCenterPanel()
     m_canvas = new PreviewCanvas(panel);
     layout->addWidget(m_canvas, 1);
 
-    // 底部工具条（高 36：适配 | 100% | 缩放滑杆；图标按钮走 Segoe 字形）
+    // 底部工具条（高 36：撤销 | 适配 | 100% | 缩放滑杆；图标按钮走 Segoe 字形）
     auto *toolbar = new QWidget(panel);
     toolbar->setObjectName("previewToolbar");
     toolbar->setFixedHeight(Theme::kToolstripHeight);
     auto *tb = new QHBoxLayout(toolbar);
     tb->setContentsMargins(12, 4, 12, 4);
     tb->setSpacing(8);
+
+    // 撤销（用户指令：编辑操作属预览区工具条，不属照片列表模块）
+    m_undoButton = createGlyphButton(toolbar, QStringLiteral("toolGlyph"),
+                                     0xE7A7,   // Undo
+                                     tr("撤销上一步（Ctrl+Z）"));
+    m_undoButton->setEnabled(false);
+    connect(m_undoButton, &QToolButton::clicked, this, [this] {
+        m_project->undo();
+        refreshWatermarkPanel();   // 撤销可能回退元素树结构
+    });
+    tb->addWidget(m_undoButton);
 
     auto *fitButton = createGlyphButton(toolbar, QStringLiteral("toolGlyph"),
                                         0xE9A6,   // FitPage
