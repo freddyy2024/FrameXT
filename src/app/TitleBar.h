@@ -39,6 +39,8 @@ signals:
     void watermarkEyeToggled(bool hidden);
     // i18n（3.9）：语言菜单选择（"zh-CN" / "zh-TW" / "en"）
     void languageSelected(const QString &code);
+    // 关于对话框入口（用户指令：从导入导出面板移至标题栏）
+    void aboutRequested();
 
 protected:
     void paintEvent(QPaintEvent *event) override;

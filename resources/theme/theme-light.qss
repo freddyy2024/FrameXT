@@ -59,7 +59,8 @@ QToolButton#languageButton::menu-indicator {
     image: none;   /* 文案已带 ▾，隐藏默认指示箭头 */
 }
 
-QToolButton#captionMin, QToolButton#captionMax, QToolButton#captionEye {
+QToolButton#captionMin, QToolButton#captionMax, QToolButton#captionEye,
+QToolButton#captionAbout {
     background: transparent;
     border: none;
     color: #5A6068;
@@ -68,12 +69,14 @@ QToolButton#captionMin, QToolButton#captionMax, QToolButton#captionEye {
     font-size: 10px;
 }
 
-QToolButton#captionMin:hover, QToolButton#captionMax:hover {
+QToolButton#captionMin:hover, QToolButton#captionMax:hover,
+QToolButton#captionAbout:hover {
     background: #EEF0F3;
     color: #1F2329;
 }
 
-QToolButton#captionMin:pressed, QToolButton#captionMax:pressed {
+QToolButton#captionMin:pressed, QToolButton#captionMax:pressed,
+QToolButton#captionAbout:pressed {
     background: #E4E7EC;
 }
 
@@ -127,6 +130,12 @@ QToolButton#toolGlyph:disabled {
     background: #FFFFFF;
     border: 1px solid #E4E7EC;
     border-radius: 5px;
+}
+
+/* 卡片内滚动区透明（QScrollArea 及其内容 widget 默认灰底/窗口底，
+   会盖住 #card 白底——用户报障：基础属性面板与导入导出卡颜色不一致） */
+QScrollArea, QScrollArea > QWidget > QWidget {
+    background: transparent;
 }
 
 #panelHeader, #cardBody {

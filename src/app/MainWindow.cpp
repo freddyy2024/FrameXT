@@ -63,8 +63,8 @@ namespace {
 // 最小 960×600 为设计稿 §3 承诺值——1366×768 小屏全功能可达）
 constexpr int kDefaultWindowWidth = 1270;
 constexpr int kDefaultWindowHeight = 950;
-constexpr int kMinWindowWidth = 960;
-constexpr int kMinWindowHeight = 600;
+constexpr int kMinWindowWidth = 1200;
+constexpr int kMinWindowHeight = 900;
 constexpr int kPanelSpacing = 8;
 constexpr int kPhotoListHeight = 176;
 
@@ -177,6 +177,9 @@ void MainWindow::buildUi()
     // 纯看图开关（👁，§3.4 第三态入口）
     connect(m_titleBar, &TitleBar::watermarkEyeToggled, m_project,
             &ProjectController::setWatermarkHidden);
+    // 关于对话框（标题栏 ⓘ，用户指令：从导入导出面板移入标题栏）
+    connect(m_titleBar, &TitleBar::aboutRequested, this,
+            &MainWindow::showAbout);
     connect(m_titleBar, &TitleBar::languageSelected, this,
             [this](const QString &code) {
                 // i18n（3.9）：写持久化 key，重启后生效（自重启最可靠，
@@ -476,11 +479,7 @@ QWidget *MainWindow::buildLeftPanel()
     m_exportPanel = new ExportPanel(ioContent);
     ioLayout->addWidget(m_exportPanel);
 
-    auto *aboutButton = new QPushButton(tr("关于 FrameXT"), ioContent);
-    aboutButton->setObjectName("secondaryButton");
-    connect(aboutButton, &QPushButton::clicked, this,
-            &MainWindow::showAbout);
-    ioLayout->addWidget(aboutButton);
+    // 「关于」入口已移至标题栏 ⓘ 按钮（用户指令），面板内不再重复
 
     layout->addWidget(createCard(tr("导入导出"), QString(), ioContent));
 

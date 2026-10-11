@@ -44,7 +44,10 @@ QString elementLabel(const Element &el)
 WatermarkPanel::WatermarkPanel(QWidget *parent)
     : QWidget(parent)
 {
-    setObjectName(QStringLiteral("watermarkPanel"));
+    setObjectName(QStringLiteral("card"));
+    // 普通 QWidget 的 QSS background 不生效，必须开 StyledBackground
+    // （用户指令：右侧面板背景与导入导出卡一致的白底）
+    setAttribute(Qt::WA_StyledBackground, true);
     auto *rootLayout = new QVBoxLayout(this);
     rootLayout->setContentsMargins(0, 0, 0, 0);
     rootLayout->setSpacing(8);

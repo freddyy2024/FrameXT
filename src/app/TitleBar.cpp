@@ -69,6 +69,14 @@ TitleBar::TitleBar(QWidget *parent)
 
     layout->addStretch();
 
+    // 关于入口（用户指令：从导入导出面板移至标题栏，ⓘ 与标题按钮同规格）
+    auto *aboutButton = createCaptionButton(QStringLiteral("captionAbout"),
+                                            QString(QChar(0xE946)),   // Info
+                                            tr("关于 FrameXT"));
+    connect(aboutButton, &QToolButton::clicked, this,
+            &TitleBar::aboutRequested);
+    layout->addWidget(aboutButton);
+
     // 语言切换（3.9）：选择后写持久化 key、重启生效；按钮文本由
     // updateLanguageButton 按已保存的语言回填（构造默认简体中文）
     m_languageButton = new QToolButton(this);

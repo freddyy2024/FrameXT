@@ -93,7 +93,8 @@ void BasicInfoPanel::buildRows()
     // 分组顺序对齐 §7.2：设备 → 拍摄参数 → 镜头 → 位置 → 文件
     auto addRow = [this](const QString &labelText) {
         const int row = m_rows.size();
-        auto *label = new QLabel(labelText);
+        // 标签带全角冒号（用户指令）；row.label 保留原文供复制整表用
+        auto *label = new QLabel(labelText + QStringLiteral("："));
         label->setObjectName(QStringLiteral("infoLabel"));
         label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
         QLabel *value = makeValueLabel();
