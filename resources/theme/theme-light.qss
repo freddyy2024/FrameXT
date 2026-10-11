@@ -235,17 +235,16 @@ QComboBox::drop-down {
     width: 24px;
 }
 
-/* 箭头用 PNG 资源（border 三角技巧在 Qt 渲染为实心方块，用户报障）；
-   hover 换强调色版本 */
+/* 箭头用 PNG 资源（border 三角技巧在 Qt 渲染为实心方块，用户报障）。
+   注意不可加 hover/focus 变色规则：Qt QSS 对「逗号多选择器+伪元素」
+   解析有缺陷（:hover::down-arrow 规则被无条件匹配），hover 图会被
+   多画一遍在控件中部形成双箭头（离屏探针实证）；hover 反馈由
+   combo 边框变色承担 */
 QComboBox::down-arrow {
     image: url(:/icons/chevron-down.png);
     width: 10px;
     height: 6px;
     margin-right: 6px;
-}
-
-QComboBox:hover::down-arrow, QComboBox:focus::down-arrow {
-    image: url(:/icons/chevron-down-hover.png);
 }
 
 QComboBox QAbstractItemView {
@@ -278,18 +277,10 @@ QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {
     height: 5px;
 }
 
-QSpinBox::up-arrow:hover, QDoubleSpinBox::up-arrow:hover {
-    image: url(:/icons/chevron-up-hover.png);
-}
-
 QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
     image: url(:/icons/chevron-down.png);
     width: 8px;
     height: 5px;
-}
-
-QSpinBox::down-arrow:hover, QDoubleSpinBox::down-arrow:hover {
-    image: url(:/icons/chevron-down-hover.png);
 }
 
 /* ---------- 菜单 ---------- */

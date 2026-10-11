@@ -122,14 +122,8 @@ void BasicInfoPanel::buildRows()
     addRow(tr("镜头"))->fieldKey = QStringLiteral("lens");
     addRow(tr("焦距"))->fieldKey = QStringLiteral("focalLength");
     addRow(tr("等效焦距"))->fieldKey = QStringLiteral("focalLengthEq");
-    // —— 位置 ——
-    addRow(tr("纬度"))->fieldKey = QStringLiteral("gpsLatitude");
-    addRow(tr("经度"))->fieldKey = QStringLiteral("gpsLongitude");
-    addRow(tr("海拔"))->fieldKey = QStringLiteral("gpsAltitude");
-    // —— Maker 特色 ——
-    addRow(tr("胶片模拟"))->fieldKey = QStringLiteral("fujiFilmSimulation");
-    addRow(tr("创意风格"))->fieldKey = QStringLiteral("sonyCreativeStyle");
-    addRow(tr("优化校准"))->fieldKey = QStringLiteral("nikonPictureControl");
+    // 位置（GPS）与 Maker 特色（胶片模拟/创意风格/优化校准）行不展示
+    // （用户指令：低频信息不占面板空间；字段解析仍在 core 层保留）
     // —— 文件 ——
     addRow(tr("软件"))->fieldKey = QStringLiteral("software");
 }
