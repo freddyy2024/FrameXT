@@ -23,14 +23,17 @@ namespace {
 
 constexpr int kPreviewMaxEdge = 2048;   // 与 PreviewCanvas 预览缩放规则一致
 
-// 黄金图专用字体：随包嵌入，与系统环境解耦（进程内必须先注册资源）
+// 黄金图专用字体：随包嵌入，与系统环境解耦（进程内必须先注册资源）。
+// 用 Aileron（产品边框文字默认字体，Regular+Bold 同 family 双字重），
+// 黄金图锚定的即是产品默认视觉路径
 const QFont &goldenFont()
 {
     static const QFont s_font = [] {
-        const int id = QFontDatabase::addApplicationFont(
-            QStringLiteral(":/fonts/SourceHanSansSC-Regular.otf"));
-        const QStringList families = QFontDatabase::applicationFontFamilies(id);
-        return QFont(families.value(0, QStringLiteral("Source Han Sans SC")));
+        QFontDatabase::addApplicationFont(
+            QStringLiteral(":/fonts/Aileron-Regular.otf"));
+        QFontDatabase::addApplicationFont(
+            QStringLiteral(":/fonts/Aileron-Bold.otf"));
+        return QFont(QStringLiteral("Aileron"));
     }();
     return s_font;
 }
@@ -46,6 +49,8 @@ FieldValueResolver goldenResolver()
     return [](const QString &key) {
         if (key == QLatin1String("make"))
             return QStringLiteral("Canon");
+        if (key == QLatin1String("model"))
+            return QStringLiteral("Canon EOS R6_2");   // 默认模板左块第一行（机型）
         if (key == QLatin1String("lens"))
             return QStringLiteral("RF 24-70mm F2.8");
         if (key == QLatin1String("paramString"))

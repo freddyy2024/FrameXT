@@ -24,6 +24,8 @@
     </qresource>
     <qresource prefix="/fonts">
         <file alias="SourceHanSansSC-Regular.otf">resources/fonts/SourceHanSansSC-Regular.otf</file>
+        <file alias="Aileron-Regular.otf">resources/fonts/Aileron-Regular.otf</file>
+        <file alias="Aileron-Bold.otf">resources/fonts/Aileron-Bold.otf</file>
     </qresource>
     <qresource prefix="/logos/camera">
         <file alias="Canon_1440_301.png">resources/logos/camera/Canon_1440_301.png</file>

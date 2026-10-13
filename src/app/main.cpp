@@ -65,6 +65,13 @@ int main(int argc, char *argv[])
     font.setStyleStrategy(QFont::PreferAntialias);
     app.setFont(font);
 
+    // 边框文字默认字体 Aileron（原版同款；CC0 公有领域——仓库 LICENSE
+    // 与 TTF nameID 0 "No Rights Reserved." 双重印证，随包嵌入零义务，
+    // 许可全文 licenses/AILERON-LICENSE.txt）。仅覆盖拉丁字形，中文内容
+    // 由 Qt 缺字回落系统字体（雅黑/思源），与原版行为一致
+    QFontDatabase::addApplicationFont(QStringLiteral(":/fonts/Aileron-Regular.otf"));
+    QFontDatabase::addApplicationFont(QStringLiteral(":/fonts/Aileron-Bold.otf"));
+
     app.setWindowIcon(QIcon(QStringLiteral(":/icons/logo-1024px.png")));
 
     fxt::MainWindow win;

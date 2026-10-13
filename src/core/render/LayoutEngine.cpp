@@ -100,19 +100,19 @@ QHash<QUuid, ElementLayout> LayoutEngine::resolve(const QList<Element> &elements
     };
 
     // —— 行组排布（hasCustomPosition 的元素不参与）——
-    qreal rowTop = bandRect.top();
-    for (const LayoutRow &row : rows) {
-        const qreal rowH = bandRect.height() * row.heightRatio;
-
-        // 收集行内可排元素（收紧：不可见 / 文本空 / Logo 缺图 / 已手动定位 → 剔除）
-        struct Pending {
-            const Element *element;
-            QString text;
-            QImage logo;
-            QSizeF size;
-        };
-        QList<Pending> pending;
-        for (const QUuid &id : row.elementIds) {
+    // 行内 pending 收集（左列/右列共用）。收紧：不可见 / 文本空 /
+    // Logo 缺图 / 已手动定位 → 剔除。bandMetric=true 时 Logo/Divider
+    // 以信息带整体高度度量（跨两行居中布局，对齐原版右块视觉）
+    struct Pending {
+        const Element *element;
+        QString text;
+        QImage logo;
+        QSizeF size;
+    };
+    auto collectPending = [&](const QList<QUuid> &ids, qreal rowH,
+                              bool bandMetric) -> QList<Pending> {
+        QList<Pending> out;
+        for (const QUuid &id : ids) {
             const Element *e = findById(id);
             if (!e || e->hasCustomPosition)
                 continue;
@@ -123,61 +123,105 @@ QHash<QUuid, ElementLayout> LayoutEngine::resolve(const QList<Element> &elements
                                                     : QImage();
             if (!resolvesToVisible(*e, p.text, p.logo))
                 continue;
-            p.size = measure(*e, p.text, p.logo, canvasW, rowH);
-            pending.append(p);
+            p.size = measure(*e, p.text, p.logo, canvasW,
+                             bandMetric ? bandRect.height() : rowH);
+            out.append(p);
         }
-        if (pending.isEmpty())
-            continue;   // 整行剔除：不消耗行高，后续行前移（§4.3 自动收紧）
-
-        // 全为分隔线的行也视为空：divider 依附行内其他元素存在，
-        // 无 Exif 照片不应在信息带留孤零零一条竖线
-        bool hasNonDivider = false;
+        return out;
+    };
+    // 行内排布（列内左对齐依次、垂直定位后写入 out；溢出时首个超列
+    // 右缘的文本省略号收尾）。返回实际消耗宽度
+    auto placePending = [&](const QList<Pending> &pending, const QRectF &colRect,
+                            qreal gap, qreal fontScale) {
+        qreal x = colRect.left();
         for (const Pending &p : pending) {
+            // Logo/Divider 跨信息带垂直居中（右块 Logo 跨两行，原版视觉），
+            // 文本元素行内垂直居中
+            const bool spanBand = p.element->kind == ElementKind::Logo
+                || p.element->kind == ElementKind::Divider;
+            const qreal yTop = spanBand
+                ? bandRect.center().y() - p.size.height() / 2.0
+                : colRect.top() + (colRect.height() - p.size.height()) / 2.0;
+            QRectF px(QPointF(x, yTop), p.size);
+            QString text = p.text;
+            const bool isText = p.element->kind == ElementKind::Text
+                || p.element->kind == ElementKind::Free;
+            if (isText && x + px.width() > colRect.right() + 0.5) {
+                const QFont font = FontKit::create(p.element->style, canvasW, fontScale);
+                text = QFontMetricsF(font).elidedText(p.text, Qt::ElideRight,
+                                                      colRect.right() - x);
+                px.setWidth(qMin(px.width(), colRect.right() - x));
+            }
+            out.insert(p.element->id, ElementLayout { px, text, fontScale });
+            x += px.width() + gap;
+            if (x > colRect.right())
+                break;
+        }
+    };
+    // 行溢出收缩系数：总宽超可用宽 → 整列等比缩字（下限 0.7×）；
+    // shrunkenH 为收缩后行高（Logo/Divider 跨带度量不受行高影响，
+    // measure 内部对这两类忽略传入行高以外的因素——此处传入仅影响文本）
+    auto shrinkIfOverflow = [&](QList<Pending> &pending, qreal availW, qreal rowH,
+                                bool bandMetric) -> qreal {
+        qreal totalW = qMax(0, pending.size() - 1) * qMax(
+            rowH * kItemGapRatio, canvasW * kItemGapMinRatio);
+        for (const Pending &p : pending)
+            totalW += p.size.width();
+        if (totalW <= availW || totalW <= 0.0)
+            return 1.0;
+        const qreal scale = qBound(kRowShrinkMin, availW / totalW, 1.0);
+        const qreal shrunkH = rowH * scale;
+        for (Pending &p : pending)
+            p.size = measure(*p.element, p.text, p.logo, canvasW,
+                             bandMetric ? bandRect.height() : shrunkH, scale);
+        return scale;
+    };
+
+    qreal rowTop = bandRect.top();
+    for (const LayoutRow &row : rows) {
+        const qreal rowH = bandRect.height() * row.heightRatio;
+        const qreal gap = qMax(rowH * kItemGapRatio, canvasW * kItemGapMinRatio);
+
+        // —— 右列先算：左列可用宽受其约束（左右列永不重叠）——
+        QList<Pending> rightPending = collectPending(row.rightIds, rowH, true);
+        qreal rightScale = 1.0;
+        if (!rightPending.isEmpty())
+            // 右列自身超带宽时收缩（极端长参数串兜底）
+            rightScale = shrinkIfOverflow(rightPending, bandRect.width(), rowH, true);
+        qreal rightBlockW = gap * qreal(rightPending.size() - 1);
+        for (const Pending &p : rightPending)
+            rightBlockW += p.size.width();
+
+        QList<Pending> leftPending = collectPending(row.elementIds, rowH, false);
+
+        // 整行剔除：左右列皆空或仅剩分隔线（divider 依附其他元素存在，
+        // 无 Exif 照片不应在信息带留孤零零一条竖线）→ 不消耗行高，后续行前移
+        bool hasContent = false;
+        for (const Pending &p : leftPending + rightPending) {
             if (p.element->kind != ElementKind::Divider) {
-                hasNonDivider = true;
+                hasContent = true;
                 break;
             }
         }
-        if (!hasNonDivider)
+        if (!hasContent)
             continue;
 
         const QRectF rowRect(bandRect.left(), rowTop, bandRect.width(), rowH);
         rowTop += rowH;   // 仅实际占位的行推进 rowTop
 
-        // 行溢出：总宽超行宽 → 整行等比缩字（下限 0.7×）后按缩后行高重测
-        const qreal gap = qMax(rowH * kItemGapRatio, canvasW * kItemGapMinRatio);
-        qreal totalW = gap * qreal(pending.size() - 1);
-        for (const Pending &p : pending)
-            totalW += p.size.width();
-        qreal fontScale = 1.0;
-        if (totalW > rowRect.width() && totalW > 0.0)
-            fontScale = qBound(kRowShrinkMin, rowRect.width() / totalW, 1.0);
-        if (fontScale < 1.0) {
-            const qreal shrunkH = rowH * fontScale;
-            for (Pending &p : pending)
-                p.size = measure(*p.element, p.text, p.logo, canvasW, shrunkH,
-                                 fontScale);
-        }
+        // 左列可用宽 = 带宽 - 右块占宽 - 列间间距
+        const qreal leftAvailW = rightPending.isEmpty()
+            ? bandRect.width()
+            : qMax(0.0, bandRect.width() - rightBlockW - gap);
+        const QRectF leftRect(bandRect.left(), rowTop - rowH, leftAvailW, rowH);
+        const qreal leftScale = shrinkIfOverflow(leftPending, leftAvailW, rowH, false);
+        placePending(leftPending, leftRect, gap, leftScale);
 
-        // 行内左对齐依次排布，垂直居中于行矩形；仍溢出（收缩下限截断）时
-        // 首个超右缘的文本以省略号收尾，其后元素不再排布（信息带右缘约束）
-        qreal x = rowRect.left();
-        for (const Pending &p : pending) {
-            QRectF px(QPointF(x, rowRect.top() + (rowRect.height() - p.size.height()) / 2.0),
-                      p.size);
-            QString text = p.text;
-            const bool isText = p.element->kind == ElementKind::Text
-                || p.element->kind == ElementKind::Free;
-            if (isText && x + px.width() > rowRect.right() + 0.5) {
-                const QFont font = FontKit::create(p.element->style, canvasW, fontScale);
-                text = QFontMetricsF(font).elidedText(p.text, Qt::ElideRight,
-                                                      rowRect.right() - x);
-                px.setWidth(qMin(px.width(), rowRect.right() - x));
-            }
-            out.insert(p.element->id, ElementLayout { px, text, fontScale });
-            x += px.width() + gap;
-            if (x > rowRect.right())
-                break;
+        // 右列：整体对齐信息带右缘（右缘与左列无重叠约束已由可用宽保证）
+        if (!rightPending.isEmpty()) {
+            QRectF rightRect(bandRect.right() - rightBlockW, rowTop - rowH,
+                             rightBlockW, rowH);
+            placePending(rightPending, rightRect, gap, rightScale);
         }
     }
 

@@ -24,7 +24,11 @@ struct LayoutRow
 {
     int index = 0;            // 行序（信息带内自上而下）
     qreal heightRatio = 0.6;  // 该行占信息带高度的比例（黄金图校准点）
-    QList<QUuid> elementIds;  // 行内元素（水平排列顺序）
+    QList<QUuid> elementIds;  // 左列元素（信息带左缘起水平排列）
+    // 右列元素（对齐信息带右缘水平排列，阅读顺序；对齐原版
+    // 「左块机型/镜头 + 右块 Logo|竖线|参数/日期」分栏布局）。
+    // 布局引擎先排左列再排右列，左右列各自收紧、互不重叠
+    QList<QUuid> rightIds;
 };
 
 // 单元素布局结果

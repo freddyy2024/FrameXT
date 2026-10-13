@@ -27,7 +27,9 @@ enum class Anchor {
 // 文本样式（值类型约束 v1.1：只存可序列化量；QFont 在 ElementPainter 内即时构造）
 struct TextStyle
 {
-    QString fontFamily = QStringLiteral("Microsoft YaHei UI");
+    // 边框文字默认字体 Aileron（原版同款，CC0 随包嵌入，main.cpp 注册）；
+    // 仅含拉丁字形，中文由 Qt 缺字回落系统字体
+    QString fontFamily = QStringLiteral("Aileron");
     qreal fontScale = 0.028;  // 字号 = fontScale × 画布宽（相对单位制）
     bool bold = false;
     bool italic = false;
