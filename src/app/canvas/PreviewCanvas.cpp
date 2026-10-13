@@ -13,7 +13,6 @@ namespace fxt {
 namespace {
 constexpr qreal kMinZoom = 0.1;
 constexpr qreal kMaxZoom = 8.0;
-constexpr int kCheckerSize = 16;
 constexpr qreal kSnapThreshold = 8.0;    // 吸附命中距离（视口 px）
 constexpr qreal kDragDeadZone = 3.0;     // 位移小于此值视为点击（不提交拖动）
 constexpr int kCapsuleWidth = 168;       // "已隐藏水印"胶囊
@@ -202,18 +201,8 @@ void PreviewCanvas::paintEvent(QPaintEvent *)
                           Theme::kRadius, Theme::kRadius);
     };
 
-    // 棋盘格底（§1.1：16px #FFFFFF/#EDEFF2）
-    p.fillRect(rect(), QColor(0xFF, 0xFF, 0xFF));
-    if (!m_image.isNull()) {
-        QColor checker(0xED, 0xEF, 0xF2);
-        for (int y = 0; y < height(); y += kCheckerSize) {
-            const bool oddRow = (y / kCheckerSize) % 2 != 0;
-            for (int x = oddRow ? 0 : kCheckerSize; x < width();
-                 x += kCheckerSize * 2) {
-                p.fillRect(x, y, kCheckerSize, kCheckerSize, checker);
-            }
-        }
-    }
+    // 画布底：浅灰实底（用户指令：原棋盘格透明指示底改浅灰，色取原棋盘格灰）
+    p.fillRect(rect(), QColor(0xED, 0xEF, 0xF2));
 
     if (m_empty || m_image.isNull()) {
         // 无图空态（§3.4：就地空态，不跳转独立页）

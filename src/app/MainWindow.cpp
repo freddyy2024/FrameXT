@@ -224,10 +224,8 @@ void MainWindow::buildUi()
     m_mainSplitter->setStretchFactor(0, 0);
     m_mainSplitter->setStretchFactor(1, 1);   // 中栏吃增量（自适应宽度）
     m_mainSplitter->setStretchFactor(2, 0);   // 右栏固定宽、贴右缘
-    // 左栏稍宽（用户指令：导出表单改「标签在上」排版后 280 可容）；
-    // 注意不要给侧栏 panel 设 maximumWidth——QSplitter 槽宽与 widget
-    // 最大宽不一致时槽内左对齐，右栏与窗口右缘之间会留出空白（用户报障）
-    m_mainSplitter->setSizes({ 280, 714, 264 });
+    // 左栏稍宽（用户指令：导出表单改「标签在上」排版后 280 可容）
+    m_mainSplitter->setSizes({ 280, 678, 300 });
 
     // 上：三栏工作区；下：照片列表
     m_rootSplitter = new QSplitter(Qt::Vertical, central);
@@ -586,6 +584,11 @@ QWidget *MainWindow::buildRightPanel()
 {
     auto *panel = new QWidget;
     panel->setObjectName("sidePanel");
+    // 固定宽度（用户指令：样式区展开/收起时面板宽度不得跳变）。300 可容
+    // 「选中元素样式」展开态（四列网格 ≈290），选中行时不再被撑开/缩回。
+    // 注意不可只设 maximumWidth——QSplitter 槽宽与 widget 最大宽不一致时
+    // 槽内左对齐，右栏与窗口右缘之间会留出空白（用户报障）
+    panel->setFixedWidth(300);
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(0, kPanelSpacing, kPanelSpacing, 0);
     layout->setSpacing(kPanelSpacing);
