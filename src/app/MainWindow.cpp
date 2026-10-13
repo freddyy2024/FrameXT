@@ -294,6 +294,10 @@ void MainWindow::buildUi()
                 m_photoList->setCurrent(id);
                 refreshBasicInfo();
                 refreshWatermarkPanel();
+                // 模板下拉/参数滑杆跟随当前照片（用户指令：切图后模板区
+                // 显示该照片所用模板，未设置显示默认）
+                syncTemplateCombo();
+                syncTemplateSliders();
                 m_canvas->setSelectedElement(QUuid());
                 // 切图后首次渲染完成时重置为适配居中（用户指令：位置不
                 // 沿用上一张）；此处预览还是上一张的图，等 previewUpdated
