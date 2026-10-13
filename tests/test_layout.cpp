@@ -267,28 +267,46 @@ void TestLayout::customPositionOverridesRow() const
 
 void TestLayout::singleLineModelBoost() const
 {
-    // 单行补偿（用户指令 2026-10-15）：镜头缺失时机型放大一号并在带内垂直居中
+    // 单行补偿（用户指令 2026-10-15）：镜头缺失时机型放大一号并跨带垂直
+    // 居中。关键场景：行 2 右列日期仍在（行占位）——左块补偿按块级判定，
+    // 不受行占位影响
     Fixture f = Fixture::make();
-    f.fields.remove("lens");   // 镜头字段缺失 → 行 2 整行剔除
+    f.fields.remove("lens");
+    Element dateTime;
+    dateTime.id = QUuid::createUuid();
+    dateTime.kind = ElementKind::Text;
+    dateTime.fieldKey = QStringLiteral("dateTime");
+    f.elements.append(dateTime);
+    f.fields.insert(QStringLiteral("dateTime"),
+                    QStringLiteral("2013-11-25 13:46"));
+
     const LayoutRow row0 = f.makeRow(0, 0.5, { f.elements[0].id, f.elements[1].id,
                                                f.elements[2].id, f.elements[3].id });
-    const LayoutRow row1 = f.makeRow(1, 0.5, { f.elements[4].id });
+    LayoutRow row1;
+    row1.index = 1;
+    row1.heightRatio = 0.5;
+    row1.elementIds = { f.elements[4].id };   // lens（字段空 → 收紧剔除）
+    row1.rightIds = { dateTime.id };          // 日期独行占位（行不剔除）
+
     const auto layouts = LayoutEngine::resolve(f.elements, { row0, row1 }, f.plan,
                                                f.resolver(), f.logoResolver());
-    QCOMPARE(layouts.size(), 4);   // lens 剔除，其余 4 元素在
+    QCOMPARE(layouts.size(), 5);   // model/logo/divider/params + 日期
 
     // 放大系数进入布局结果（绘制字号 = 样式字号 × fontScale，度量同源）
     QCOMPARE(layouts.value(f.elements[0].id).fontScale, 1.15);
-    // 单行带内垂直居中
+    // 左块跨带垂直居中（行 2 占位也不跟随行 1 对齐）
     const QRectF modelRect = layouts.value(f.elements[0].id).pxRect;
     const qreal bandTop = f.plan.photoRect.bottom() + 1.0;
     QVERIFY2(qAbs(modelRect.center().y()
                       - (bandTop + f.plan.exBandHeight / 2.0)) <= 1.0,
-             "单行机型未在信息带内垂直居中");
+             "单行机型未跨信息带垂直居中");
 
-    // 对照：镜头在场时不放大
+    // 对照：镜头在场时不放大不跨带
     Fixture g = Fixture::make();
-    const auto layouts2 = LayoutEngine::resolve(g.elements, { row0, row1 },
+    const LayoutRow grow1 = f.makeRow(1, 0.5, { g.elements[4].id });
+    const LayoutRow grow0 = f.makeRow(0, 0.5, { g.elements[0].id, g.elements[1].id,
+                                                g.elements[2].id, g.elements[3].id });
+    const auto layouts2 = LayoutEngine::resolve(g.elements, { grow0, grow1 },
                                                 g.plan, g.resolver(),
                                                 g.logoResolver());
     QCOMPARE(layouts2.value(g.elements[0].id).fontScale, 1.0);

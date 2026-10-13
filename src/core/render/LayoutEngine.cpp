@@ -250,49 +250,8 @@ QHash<QUuid, ElementLayout> LayoutEngine::resolve(const QList<Element> &elements
         rowSlots.append(s);
     }
 
-    // 单行补偿（用户指令 2026-10-15）：镜头实际不可见（隐藏或字段值空，
-    // 与 collectPending 同判定规则）时，机型字号放大一号重测——放大系数
-    // 并入 fontScale 链（收缩比 × boost），度量与绘制同源；单行由紧凑
-    // 落位自然在带内垂直居中
-    auto fieldPlacedVisible = [&](const char *key) {
-        const QString fk = QString::fromLatin1(key);
-        for (const Element &e : elements) {
-            if (e.fieldKey != fk)
-                continue;
-            if (!e.visible)
-                continue;
-            if (e.hasCustomPosition)
-                return true;   // 手动定位独立渲染，视为存在
-            return !displayText(e, resolver).isEmpty();
-        }
-        return false;
-    };
-    if (!fieldPlacedVisible("lens")) {
-        for (RowSlot &s : rowSlots) {
-            for (Pending &p : s.left) {
-                if (p.element->fieldKey == QLatin1String("model")
-                    && p.element->kind == ElementKind::Text) {
-                    s.boost = kSingleLineBoost;
-                    p.size = measure(*p.element, p.text, p.logo, canvasW,
-                                     bandRect.height(), kSingleLineBoost);
-                }
-            }
-        }
-    }
-
-    for (RowSlot &s : rowSlots) {
-        if (s.right.isEmpty() && s.left.isEmpty())
-            continue;
-        // 先以未收缩内容高参与收缩判定
-        qreal contentH = 0.0;
-        for (const Pending &p : s.left + s.right) {
-            if (!isSpanBand(p))
-                contentH = qMax(contentH, p.size.height());
-        }
-        s.contentH = contentH;
-    }
-
-    // 行剔除与左列收缩（可用宽 = 带宽 - 共同右块宽 - 列间距）
+    // 行剔除（右列有内容如日期时行仍占位——左块单行补偿在块级判定，
+    // 不受此影响）
     QList<RowSlot> placed;
     for (RowSlot &s : rowSlots) {
         // 整行剔除：左右列皆空或仅剩分隔线（divider 依附其他元素存在，
@@ -306,24 +265,56 @@ QHash<QUuid, ElementLayout> LayoutEngine::resolve(const QList<Element> &elements
         }
         if (!hasContent)
             continue;
-        if (!s.left.isEmpty()) {
-            const qreal avail = (textColW + decorColW) > 0.0
-                ? qMax(0.0, bandRect.width() - textColW - decorColW
-                                - gapFor(s.contentH))
-                : bandRect.width();
-            // 放大系数并入缩放链：最终 fontScale = 收缩比 × boost，
-            // 绘制字号与度量保持同源（超宽仍按 0.7 下限收缩兜底）
-            s.leftScale = shrinkIfOverflow(s.left, avail, s.contentH, false)
-                          * s.boost;
-            // 收缩后重算内容高
-            qreal contentH = 0.0;
-            for (const Pending &p : s.left + s.right) {
-                if (!isSpanBand(p))
-                    contentH = qMax(contentH, p.size.height());
-            }
-            s.contentH = contentH;
-        }
         placed.append(s);
+    }
+
+    // 左块单行补偿（用户指令 2026-10-15 二次修正）：收紧后左块仅剩一行
+    // （镜头缺失/隐藏/字段空；右列日期独行不影响判定）时，机型字号放大
+    // 一号并跨信息带垂直居中——与右块 Logo 跨带居中同视觉逻辑，而非跟随
+    // 行 1 对齐。放大系数并入 fontScale 链（收缩比 × boost，度量绘制同源）
+    bool leftSingle = false;
+    for (RowSlot &s : placed) {
+        if (s.left.isEmpty())
+            continue;
+        int leftRows = 0;
+        for (const RowSlot &o : placed)
+            leftRows += o.left.isEmpty() ? 0 : 1;
+        if (leftRows != 1)
+            break;
+        leftSingle = true;
+        s.boost = kSingleLineBoost;
+        for (Pending &p : s.left) {
+            if (p.element->fieldKey == QLatin1String("model")
+                && p.element->kind == ElementKind::Text)
+                p.size = measure(*p.element, p.text, p.logo, canvasW,
+                                 bandRect.height(), kSingleLineBoost);
+        }
+        break;
+    }
+
+    // 左列收缩（可用宽 = 带宽 - 共同右块宽 - 列间距；含放大后内容高）
+    for (RowSlot &s : placed) {
+        if (s.left.isEmpty())
+            continue;
+        qreal contentH = 0.0;
+        for (const Pending &p : s.left + s.right) {
+            if (!isSpanBand(p))
+                contentH = qMax(contentH, p.size.height());
+        }
+        s.contentH = contentH;
+        const qreal avail = (textColW + decorColW) > 0.0
+            ? qMax(0.0, bandRect.width() - textColW - decorColW
+                            - gapFor(s.contentH))
+            : bandRect.width();
+        s.leftScale = shrinkIfOverflow(s.left, avail, s.contentH, false)
+                      * s.boost;
+        // 收缩后重算内容高
+        contentH = 0.0;
+        for (const Pending &p : s.left + s.right) {
+            if (!isSpanBand(p))
+                contentH = qMax(contentH, p.size.height());
+        }
+        s.contentH = contentH;
     }
 
     // 紧凑落位：行间隙 kRowGapRatio×带高；空间不足时压缩间隙，充足时
@@ -348,7 +339,13 @@ QHash<QUuid, ElementLayout> LayoutEngine::resolve(const QList<Element> &elements
             const qreal leftAvailW = (textColW + decorColW) > 0.0
                 ? qMax(0.0, bandRect.width() - textColW - decorColW - gap)
                 : bandRect.width();
-            const QRectF leftRect(bandRect.left(), y0, leftAvailW, s.contentH);
+            // 左块单行补偿：矩形取整带高，行内居中即跨带垂直居中
+            const bool slotLeftSingle = leftSingle && !s.left.isEmpty();
+            const QRectF leftRect(bandRect.left(),
+                                  slotLeftSingle ? bandRect.top() : y0,
+                                  leftAvailW,
+                                  slotLeftSingle ? bandRect.height()
+                                                 : s.contentH);
             placePending(s.left, leftRect, gap, s.leftScale);
             if (!s.right.isEmpty()) {
                 // 右列拆两段：文本列共同左缘（参数/日期左对齐）+ 装饰块

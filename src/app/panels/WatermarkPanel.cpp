@@ -169,7 +169,7 @@ void WatermarkPanel::buildStyleArea()
     m_spacingSpin->setRange(-0.02, 0.20);
     m_spacingSpin->setSingleStep(0.002);
     m_spacingSpin->setDecimals(3);
-    m_spacingSpin->setFixedWidth(72);
+    m_spacingSpin->setFixedWidth(96);   // 用户指令：原 72 加宽 1/3，小数显全
     m_spacingSpin->setToolTip(tr("字间距（相对画布宽）"));
     layout->addWidget(new QLabel(tr("字间距"), m_textStyleRows), 2, 2);
     layout->addWidget(m_spacingSpin, 2, 3);
