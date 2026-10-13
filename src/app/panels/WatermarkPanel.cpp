@@ -115,8 +115,8 @@ void WatermarkPanel::buildStyleArea()
     m_styleGroup = new QGroupBox(tr("选中元素样式"), this);
     m_styleGroup->setObjectName("styleGroup");
     auto *layout = new QGridLayout(m_styleGroup);
-    // 内边距（用户指令）：两边及顶部 5px（底部保持），配合浅灰细边框
-    layout->setContentsMargins(5, 5, 5, 10);
+    // 内边距（用户指令）：两侧 5px、顶部 10px（5+5 二次加高）、底部 10px
+    layout->setContentsMargins(5, 10, 5, 10);
     layout->setHorizontalSpacing(6);
     layout->setVerticalSpacing(6);
 

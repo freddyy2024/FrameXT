@@ -201,8 +201,8 @@ void PreviewCanvas::paintEvent(QPaintEvent *)
                           Theme::kRadius, Theme::kRadius);
     };
 
-    // 画布底：浅灰实底（用户指令：原棋盘格透明指示底改浅灰，色取原棋盘格灰）
-    p.fillRect(rect(), QColor(0xED, 0xEF, 0xF2));
+    // 画布底：浅灰实底（用户指令：一版 #EDEFF2 偏浅，加深为 #DDE0E5）
+    p.fillRect(rect(), QColor(0xDD, 0xE0, 0xE5));
 
     if (m_empty || m_image.isNull()) {
         // 无图空态（§3.4：就地空态，不跳转独立页）
@@ -216,6 +216,11 @@ void PreviewCanvas::paintEvent(QPaintEvent *)
         return;
     }
 
+    // 缩放绘制开双线性平滑：Qt 默认最近邻采样，非整数比例缩小时产生
+    // 锯齿/摩尔纹，细小文字（水印信息带）笔画断裂发虚（用户报障）；
+    // 仅影响 drawImage 采样，上方矢量交互层绘制不受影响，2048 级
+    // 中间图插值开销毫秒级，平移/缩放无感知
+    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
     p.drawImage(imageRect(), m_image);
 
     // —— 元素交互层（视口坐标绘制）——

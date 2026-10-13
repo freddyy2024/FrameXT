@@ -158,9 +158,10 @@ QScrollArea, QScrollArea > QWidget > QWidget {
     background: transparent;
 }
 
-/* 预览画布：与其他面板卡片一致的实线边框 */
+/* 预览画布：与其他面板卡片一致的实线边框；背景实际由自绘 paintEvent
+   fillRect 承担（QSS background 对自绘 widget 不生效），值仅作同步备注 */
 #previewCanvas {
-    background: #FFFFFF;
+    background: #DDE0E5;
     border: 1px solid #E4E7EC;
     border-radius: 5px;
 }
