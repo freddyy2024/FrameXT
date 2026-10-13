@@ -13,6 +13,7 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSlider>
+#include <QSpacerItem>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -144,6 +145,10 @@ void WatermarkPanel::buildStyleArea()
     m_fontScaleSpin->setToolTip(tr("字号（相对画布宽）"));
     layout->addWidget(new QLabel(tr("字号"), m_textStyleRows), 1, 0);
     layout->addWidget(m_fontScaleSpin, 1, 1);
+    // 字号框右侧 10px 间距（用户指令；列距 6 + 固定 spacer 4）
+    layout->addItem(new QSpacerItem(4, 1, QSizePolicy::Fixed,
+                                    QSizePolicy::Minimum),
+                    1, 2);
 
     m_boldButton = new QToolButton(m_textStyleRows);
     m_boldButton->setObjectName(QStringLiteral("styleMiniButton"));
@@ -155,8 +160,8 @@ void WatermarkPanel::buildStyleArea()
     m_italicButton->setText(tr("I"));
     m_italicButton->setCheckable(true);
     m_italicButton->setStyleSheet(QStringLiteral("font-style: italic"));
-    layout->addWidget(m_boldButton, 1, 2);
-    layout->addWidget(m_italicButton, 1, 3);
+    layout->addWidget(m_boldButton, 1, 3);
+    layout->addWidget(m_italicButton, 1, 4);
 
     m_colorButton = new QPushButton(m_textStyleRows);
     m_colorButton->setObjectName(QStringLiteral("colorButton"));
@@ -177,11 +182,11 @@ void WatermarkPanel::buildStyleArea()
     m_opacitySlider = new QSlider(Qt::Horizontal, m_textStyleRows);
     m_opacitySlider->setRange(0, 100);
     layout->addWidget(new QLabel(tr("透明度"), m_textStyleRows), 3, 0);
-    layout->addWidget(m_opacitySlider, 3, 1, 1, 3);
+    layout->addWidget(m_opacitySlider, 3, 1, 1, 4);
 
     m_resetPosButton = new QPushButton(tr("还原位置"), m_textStyleRows);
     m_resetPosButton->setObjectName("secondaryButton");
-    layout->addWidget(m_resetPosButton, 4, 0, 1, 4);
+    layout->addWidget(m_resetPosButton, 4, 0, 1, 5);
     groupLayout->addWidget(m_textStyleRows);
 
     // —— Logo 换标行（方案 A：元素级自定义 Logo，仅 Logo 选中时显示）——

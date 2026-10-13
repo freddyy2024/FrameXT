@@ -113,17 +113,39 @@ void PreviewCanvas::setZoom(qreal zoom)
     setZoomAt(zoom);
 }
 
-// 中心锚缩放 + 缩放即回中：图像中心恒对齐视口中心（用户指令）——
-// 拖动偏移不跨缩放保留，滚轮一动就回居中，图片不会跑出视口
-void PreviewCanvas::setZoomAt(qreal zoom)
+// 锚点缩放（用户指令 2026-10-15 重新设计，替代原「缩放即回中」——
+// 放大看局部后再次缩放视图跳回中心需反复拖动，交互不友好）：缩放
+// 前后锚点指向的图像点保持在锚点下方，平移状态跨缩放保留
+void PreviewCanvas::setZoomAt(qreal zoom, const QPointF &anchor)
 {
+    if (m_image.isNull())
+        return;
     const qreal newZoom = qBound(kMinZoom, zoom, kMaxZoom);
     if (qFuzzyCompare(newZoom, m_zoom))
         return;
+    // 锚点下的图像坐标（缩放前）→ 缩放后反解 panOffset 保持其不动
+    const QPointF imgPos = (anchor - m_panOffset) / m_zoom;
     m_zoom = newZoom;
-    centerImage();
+    m_panOffset = anchor - imgPos * m_zoom;
+    clampPan();
     emit zoomChanged(m_zoom);
     update();
+}
+
+void PreviewCanvas::setZoomAt(qreal zoom)
+{
+    setZoomAt(zoom, QPointF(width() / 2.0, height() / 2.0));
+}
+
+// 平移边界钳制：图像任一边至少留 kPanEdge 在视口内（不允许完全拖出）
+void PreviewCanvas::clampPan()
+{
+    const qreal imgW = m_image.width() * m_zoom;
+    const qreal imgH = m_image.height() * m_zoom;
+    m_panOffset.setX(qBound(qreal(kPanEdge) - imgW, m_panOffset.x(),
+                            qreal(width() - kPanEdge)));
+    m_panOffset.setY(qBound(qreal(kPanEdge) - imgH, m_panOffset.y(),
+                            qreal(height() - kPanEdge)));
 }
 
 QPointF PreviewCanvas::toImagePos(const QPointF &viewPos) const
@@ -319,7 +341,7 @@ void PreviewCanvas::wheelEvent(QWheelEvent *event)
     if (dy == 0)
         return;   // 横向滚动（触控板双指水平）不触发缩放
     const qreal step = dy > 0 ? 1.2 : 1.0 / 1.2;
-    setZoomAt(m_zoom * step);   // 中心锚，缩放即回中
+    setZoomAt(m_zoom * step, event->position());   // 鼠标位锚点缩放
 }
 
 void PreviewCanvas::mousePressEvent(QMouseEvent *event)
@@ -385,15 +407,8 @@ void PreviewCanvas::mousePressEvent(QMouseEvent *event)
 void PreviewCanvas::mouseMoveEvent(QMouseEvent *event)
 {
     if (m_panning) {
-        QPointF offset = m_panOffset + QPointF(event->pos() - m_panStart);
-        // 边界钳制：图片不允许完全拖出视口（任一边至少留 24px 可见）
-        const qreal imgW = m_image.width() * m_zoom;
-        const qreal imgH = m_image.height() * m_zoom;
-        offset.setX(qBound(qreal(kPanEdge) - imgW, offset.x(),
-                           qreal(width() - kPanEdge)));
-        offset.setY(qBound(qreal(kPanEdge) - imgH, offset.y(),
-                           qreal(height() - kPanEdge)));
-        m_panOffset = offset;
+        m_panOffset += QPointF(event->pos() - m_panStart);
+        clampPan();   // 图像不允许完全拖出视口（任一边至少留 24px 可见）
         m_panStart = event->pos();
         update();
         return;

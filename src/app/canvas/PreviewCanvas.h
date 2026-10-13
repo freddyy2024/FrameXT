@@ -15,9 +15,10 @@ class QLineEdit;
 namespace fxt {
 
 // 预览画布（开发计划 3.4 / 04-UI §3.4）：
-// 棋盘格底 + 圆角卡片内渲染图显示；中心锚缩放（0.1–8×，缩放即回中——
-// 图像中心恒对齐视口中心，用户指令）、左键空白拖动平移（边界钳制：
-// 图片不允许完全拖出视口）、空格/中键平移、适配窗口 / 100%。
+// 浅灰实底 + 圆角卡片内渲染图显示；锚点缩放（0.1–8×：滚轮以鼠标位置
+// 为锚——缩放前后鼠标指向的图像点保持不动，平移状态跨缩放保留；
+// 工具条以视口中心为锚；适配窗口重新居中）、左键空白拖动平移（边界
+// 钳制：图片不允许完全拖出视口）、空格/中键平移、适配窗口 / 100%。
 // 编辑态：元素单击选中（#6C5CE7 手柄框）→ 拖动移动 + 参考线吸附
 // （中心/三分线/画布边），松手一次提交（一次撤销快照）；
 // 双击文本元素就地编辑；Del/右键菜单走信号由外部处置。
@@ -67,8 +68,13 @@ protected:
 
 private:
     QRectF imageRect() const;   // 当前缩放/平移下图像在视口中的矩形
-    void setZoomAt(qreal zoom);   // 中心锚缩放 + 回中
+    // 锚点缩放：anchor = 锚点视口坐标（滚轮 = 鼠标位，工具条 = 视口中心）。
+    // 缩放前后锚点指向的图像点保持在锚点下方；平移状态跨缩放保留
+    void setZoomAt(qreal zoom, const QPointF &anchor);
+    void setZoomAt(qreal zoom);   // 视口中心锚（工具条/程序调用）
     void centerImage();           // 图像中心对齐视口中心
+    // 平移边界钳制：图像任一边至少留 kPanEdge 在视口内（平移/缩放共用）
+    void clampPan();
     // 视口坐标 → 图像像素坐标
     QPointF toImagePos(const QPointF &viewPos) const;
     QUuid hitTest(const QPointF &imagePos) const;
