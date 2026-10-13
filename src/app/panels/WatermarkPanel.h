@@ -44,6 +44,9 @@ signals:
     void elementSelected(const QUuid &id);
     void elementStyleChanged(const QUuid &id, const TextStyle &style);
     void elementResetPositionRequested(const QUuid &id);
+    // Logo 元素级换标（方案 A：customLogoPath）/ 还原品牌自动匹配
+    void logoReplaceRequested(const QUuid &id);
+    void logoResetRequested(const QUuid &id);
     void addCustomTextRequested();
     void removeCustomTextRequested(const QUuid &id);
     void applyRequested(ApplyScope scope);
@@ -64,6 +67,8 @@ private:
 
     // 选中元素样式区
     QGroupBox *m_styleGroup = nullptr;
+    QWidget *m_textStyleRows = nullptr;   // 文字属性容器（Logo 选中时整组隐藏）
+    QWidget *m_logoStyleRow = nullptr;    // Logo 换标按钮行（仅 Logo 选中时显示）
     QFontComboBox *m_fontCombo = nullptr;
     QDoubleSpinBox *m_fontScaleSpin = nullptr;
     QPushButton *m_colorButton = nullptr;

@@ -102,7 +102,10 @@ BuiltinSpec defaultSpec(const QString &templateId)
     dateTime.kind = ElementKind::Text;
     dateTime.fieldKey = QString::fromLatin1(kDateTime);
     dateTime.style.fontScale = kFontScaleSecondary;
-    dateTime.style.color = textColor;
+    // 日期为次级信息，颜色浅一档（用户指令）：黑字带用次级灰，
+    // 白字带（blur）用半透明白
+    dateTime.style.color = onBlur ? QColor(255, 255, 255, 200)
+                                  : QColor(QStringLiteral("#5A6068"));
 
     spec.elements = { model, logo, divider, params, lens, dateTime };
 

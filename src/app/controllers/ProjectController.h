@@ -81,6 +81,9 @@ public:
     void raiseElement(const QUuid &elementId);
     // 还原位置（回到行组自动排布）
     void resetElementPosition(const QUuid &elementId);
+    // Logo 元素级换标（方案 A）：path 非空写 customLogoPath，空 = 还原
+    // 品牌自动匹配（撤销栈与重渲染同其他元素编辑）
+    void setElementCustomLogo(const QUuid &elementId, const QString &path);
 
     // —— 撤销 ——
     void undo();

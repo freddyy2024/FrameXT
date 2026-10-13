@@ -62,10 +62,10 @@ private slots:
 void TestExif::shutterBoundaries() const
 {
     // <1s：分数化 + 常见值吸附
-    QCOMPARE(ExifFormatter::shutter(1.0 / 160), QStringLiteral("1/160"));
-    QCOMPARE(ExifFormatter::shutter(1.0 / 159), QStringLiteral("1/160"));   // 5% 吸附
-    QCOMPARE(ExifFormatter::shutter(0.5), QStringLiteral("1/2"));
-    QCOMPARE(ExifFormatter::shutter(1.0 / 3), QStringLiteral("1/3"));
+    QCOMPARE(ExifFormatter::shutter(1.0 / 160), QStringLiteral("1/160s"));
+    QCOMPARE(ExifFormatter::shutter(1.0 / 159), QStringLiteral("1/160s"));   // 5% 吸附
+    QCOMPARE(ExifFormatter::shutter(0.5), QStringLiteral("1/2s"));
+    QCOMPARE(ExifFormatter::shutter(1.0 / 3), QStringLiteral("1/3s"));
     // ≥1s：小数 s
     QCOMPARE(ExifFormatter::shutter(1.6), QStringLiteral("1.6s"));
     QCOMPARE(ExifFormatter::shutter(30.0), QStringLiteral("30s"));
@@ -78,9 +78,9 @@ void TestExif::shutterBoundaries() const
 void TestExif::fNumberAndTrim() const
 {
     QCOMPARE(ExifFormatter::fNumber(5.6), QStringLiteral("f/5.6"));
-    QCOMPARE(ExifFormatter::fNumber(8.0), QStringLiteral("f/8"));       // 去尾零
+    QCOMPARE(ExifFormatter::fNumber(8.0), QStringLiteral("f/8.0"));       // 固定一位小数（f/4.0，用户指令 2026-10-14）
     QCOMPARE(ExifFormatter::fNumber(1.4), QStringLiteral("f/1.4"));
-    QCOMPARE(ExifFormatter::fNumber(22.0), QStringLiteral("f/22"));
+    QCOMPARE(ExifFormatter::fNumber(22.0), QStringLiteral("f/22.0"));
     QVERIFY(ExifFormatter::fNumber(0).isEmpty());
     QCOMPARE(ExifFormatter::iso(140), QStringLiteral("ISO 140"));
     QVERIFY(ExifFormatter::iso(0).isEmpty());
@@ -167,7 +167,7 @@ void TestExif::apexFNumberConverts() const
 {
     // P0：MaxApertureValue 是 APEX（f=2^(v/2)），直接按 FNumber 会错
     QCOMPARE(ExifFormatter::apexFNumber(3.0), QStringLiteral("f/2.8"));
-    QCOMPARE(ExifFormatter::apexFNumber(4.0), QStringLiteral("f/4"));
+    QCOMPARE(ExifFormatter::apexFNumber(4.0), QStringLiteral("f/4.0"));
     QCOMPARE(ExifFormatter::apexFNumber(5.0), QStringLiteral("f/5.7"));
     QVERIFY(ExifFormatter::apexFNumber(0).isEmpty());
     QVERIFY(ExifFormatter::apexFNumber(-1).isEmpty());
@@ -177,7 +177,7 @@ void TestExif::formatterEdgeCorrections() const
 {
     // P2 修正锁定：0.98s → "1s"（非 "1/1"）
     QCOMPARE(ExifFormatter::shutter(0.98), QStringLiteral("1s"));
-    QCOMPARE(ExifFormatter::shutter(0.5), QStringLiteral("1/2"));
+    QCOMPARE(ExifFormatter::shutter(0.5), QStringLiteral("1/2s"));
     // EV 负零：|ev|<0.05 → "0 EV"
     QCOMPARE(ExifFormatter::exposureComp(0.04), QStringLiteral("0 EV"));
     QCOMPARE(ExifFormatter::exposureComp(-0.04), QStringLiteral("0 EV"));
@@ -193,14 +193,14 @@ void TestExif::registryMapsTagsToDisplay() const
     RawExif raw;
     raw.insert(QStringLiteral("Exif.Image.Make"), QStringLiteral("Canon"));
     raw.insert(QStringLiteral("Exif.Photo.ExposureTime"),
-               QStringLiteral("1/160"));
+               QStringLiteral("1/160"));   // Rational 字符串（exiv2 解析输入）
     raw.insert(QStringLiteral("Exif.Photo.FNumber"), QStringLiteral("56/10"));
     raw.insert(QStringLiteral("Exif.Photo.ISOSpeedRatings"),
                QStringLiteral("140"));
 
     const auto display = FieldRegistry::resolveDisplay(raw);
     QCOMPARE(display.value(QStringLiteral("make")), QStringLiteral("Canon"));
-    QCOMPARE(display.value(QStringLiteral("shutter")), QStringLiteral("1/160"));
+    QCOMPARE(display.value(QStringLiteral("shutter")), QStringLiteral("1/160s"));
     QCOMPARE(display.value(QStringLiteral("fNumber")), QStringLiteral("f/5.6"));
     QCOMPARE(display.value(QStringLiteral("iso")), QStringLiteral("ISO 140"));
     // 未注册的 raw tag 不出现在展示集
@@ -316,7 +316,7 @@ void TestExif::readerRoundTripsWrittenExif() const
     QCOMPARE(display.value(QStringLiteral("make")),
              QStringLiteral("OM System"));
     QCOMPARE(display.value(QStringLiteral("model")), QStringLiteral("OM-1"));
-    QCOMPARE(display.value(QStringLiteral("shutter")), QStringLiteral("1/160"));
+    QCOMPARE(display.value(QStringLiteral("shutter")), QStringLiteral("1/160s"));
     QCOMPARE(display.value(QStringLiteral("fNumber")), QStringLiteral("f/2.8"));
     QCOMPARE(display.value(QStringLiteral("iso")), QStringLiteral("ISO 1400"));
     QCOMPARE(display.value(QStringLiteral("dateTime")),

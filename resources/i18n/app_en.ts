@@ -4,29 +4,29 @@
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="991"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1020"/>
         <source>文件名冲突</source>
         <translation>File Name Conflict</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="992"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1021"/>
         <source>目标目录已有同名文件：
 %1</source>
         <translation>A file with the same name already exists in the target folder:
 %1</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="993"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1022"/>
         <source>自动重命名</source>
         <translation>Auto Rename</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="995"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1024"/>
         <source>覆盖</source>
         <translation>Overwrite</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="997"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1026"/>
         <source>跳过</source>
         <translation>Skip</translation>
     </message>
@@ -370,245 +370,254 @@ Conflict rename: DSC_2261(1).jpg (when an existing file is in the way)</translat
 <context>
     <name>fxt::MainWindow</name>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="197"/>
+        <location filename="../../src/app/MainWindow.cpp" line="202"/>
         <source>切换界面语言</source>
         <translation>Switch UI Language</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="198"/>
+        <location filename="../../src/app/MainWindow.cpp" line="203"/>
         <source>语言将在重启应用后生效。立即重启吗？</source>
         <translation>The language takes effect after restart. Restart now?</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="259"/>
+        <location filename="../../src/app/MainWindow.cpp" line="262"/>
         <source>导入完成</source>
         <translation>Import Finished</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="260"/>
+        <location filename="../../src/app/MainWindow.cpp" line="263"/>
         <source>成功 %1 张 · 失败 %2 张：
 %3</source>
         <translation>%1 succeeded · %2 failed:
 %3</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="274"/>
+        <location filename="../../src/app/MainWindow.cpp" line="277"/>
         <source>取消导出</source>
         <translation>Cancel Export</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="275"/>
+        <location filename="../../src/app/MainWindow.cpp" line="278"/>
         <source>已导出 %1 张将保留。确定取消剩余任务吗？</source>
         <translation>The %1 exported photos will be kept. Cancel the remaining tasks?</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="427"/>
+        <location filename="../../src/app/MainWindow.cpp" line="445"/>
         <source>自定义文本最多 5 条</source>
         <translation>Up to 5 custom texts</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="516"/>
+        <location filename="../../src/app/MainWindow.cpp" line="540"/>
         <source>撤销上一步（Ctrl+Z）</source>
         <translation>Undo (Ctrl+Z)</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="526"/>
+        <location filename="../../src/app/MainWindow.cpp" line="550"/>
         <source>适配窗口</source>
         <translation>Fit to Window</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="537"/>
+        <location filename="../../src/app/MainWindow.cpp" line="561"/>
         <source>按原始尺寸显示（100%）</source>
         <translation>Show at 100% (original size)</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="566"/>
+        <location filename="../../src/app/MainWindow.cpp" line="590"/>
         <source>左键拖动平移 · 滚轮缩放</source>
         <translation>Drag to pan · Scroll to zoom</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="617"/>
+        <location filename="../../src/app/MainWindow.cpp" line="646"/>
         <source>信息带高度</source>
         <translation>Info Band Height</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="620"/>
+        <location filename="../../src/app/MainWindow.cpp" line="649"/>
         <source>圆角</source>
         <translation>Corner Radius</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="623"/>
+        <location filename="../../src/app/MainWindow.cpp" line="652"/>
         <source>模糊强度</source>
         <translation>Blur Strength</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="633"/>
-        <location filename="../../src/app/MainWindow.cpp" line="638"/>
-        <location filename="../../src/app/MainWindow.cpp" line="773"/>
-        <location filename="../../src/app/MainWindow.cpp" line="786"/>
+        <location filename="../../src/app/MainWindow.cpp" line="662"/>
+        <location filename="../../src/app/MainWindow.cpp" line="667"/>
+        <location filename="../../src/app/MainWindow.cpp" line="802"/>
+        <location filename="../../src/app/MainWindow.cpp" line="815"/>
         <source>%1%</source>
         <translation>%1%</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="650"/>
+        <location filename="../../src/app/MainWindow.cpp" line="679"/>
         <source>模板管理…</source>
         <translation>Manage Templates…</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="692"/>
+        <location filename="../../src/app/MainWindow.cpp" line="721"/>
         <source>正在导入，请稍后再试</source>
         <translation>Importing, please try again later</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="804"/>
+        <location filename="../../src/app/MainWindow.cpp" line="833"/>
         <source>批量应用</source>
         <translation>Apply to Multiple</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="805"/>
+        <location filename="../../src/app/MainWindow.cpp" line="834"/>
         <source>将把当前照片的模板与水印设置应用到 %1 张照片？</source>
         <translation>Apply the current template and watermark settings to %1 photo(s)?</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="808"/>
+        <location filename="../../src/app/MainWindow.cpp" line="837"/>
         <source>应用</source>
         <translation>Apply</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="809"/>
+        <location filename="../../src/app/MainWindow.cpp" line="838"/>
         <source>保留已手动调整的位置</source>
         <translation>Keep manually adjusted positions</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="817"/>
+        <location filename="../../src/app/MainWindow.cpp" line="846"/>
         <source>已应用到 %1 张照片 · 可撤销</source>
         <translation>Applied to %1 photo(s) · undo available</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="818"/>
+        <location filename="../../src/app/MainWindow.cpp" line="847"/>
         <source>没有需要应用的照片</source>
         <translation>No photos to apply</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="464"/>
+        <location filename="../../src/app/MainWindow.cpp" line="488"/>
         <source>导入照片…</source>
         <translation>Import Photos…</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="352"/>
-        <location filename="../../src/app/MainWindow.cpp" line="468"/>
+        <location filename="../../src/app/MainWindow.cpp" line="355"/>
+        <location filename="../../src/app/MainWindow.cpp" line="492"/>
         <source>选择照片</source>
         <translation>Select Photos</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="353"/>
-        <location filename="../../src/app/MainWindow.cpp" line="469"/>
+        <location filename="../../src/app/MainWindow.cpp" line="356"/>
+        <location filename="../../src/app/MainWindow.cpp" line="493"/>
         <source>照片文件 (%1)</source>
         <translation>Photo Files (%1)</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="477"/>
-        <location filename="../../src/app/MainWindow.cpp" line="703"/>
-        <location filename="../../src/app/MainWindow.cpp" line="1431"/>
+        <location filename="../../src/app/MainWindow.cpp" line="732"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1460"/>
         <source>尚未导入照片</source>
         <translation>No photos imported</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="941"/>
+        <location filename="../../src/app/MainWindow.cpp" line="970"/>
         <source>关于 FrameXT</source>
         <translation>About FrameXT</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="487"/>
+        <location filename="../../src/app/MainWindow.cpp" line="510"/>
         <source>导入导出</source>
         <translation>Import / Export</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="661"/>
+        <location filename="../../src/app/MainWindow.cpp" line="430"/>
+        <source>更换 Logo</source>
+        <translation>Replace Logo</translation>
+    </message>
+    <message>
+        <location filename="../../src/app/MainWindow.cpp" line="432"/>
+        <source>图片 (*.png *.jpg *.jpeg *.webp *.bmp)</source>
+        <translation>Images (*.png *.jpg *.jpeg *.webp *.bmp)</translation>
+    </message>
+    <message>
+        <location filename="../../src/app/MainWindow.cpp" line="690"/>
         <source>模板</source>
         <translation>Template</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="712"/>
+        <location filename="../../src/app/MainWindow.cpp" line="741"/>
         <source>已选 %1 张</source>
         <translation>%1 selected</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="723"/>
+        <location filename="../../src/app/MainWindow.cpp" line="752"/>
         <source>%1&#x3000;· 内置</source>
-        <translation>%1　· Built-in</translation>
+        <translation>%1&#x3000;· Built-in</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="733"/>
+        <location filename="../../src/app/MainWindow.cpp" line="762"/>
         <source>（模板已删除）</source>
         <translation>(template deleted)</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="847"/>
+        <location filename="../../src/app/MainWindow.cpp" line="876"/>
         <source>置顶</source>
         <translation>Bring to Front</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="851"/>
+        <location filename="../../src/app/MainWindow.cpp" line="880"/>
         <source>还原位置</source>
         <translation>Reset Position</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="866"/>
+        <location filename="../../src/app/MainWindow.cpp" line="895"/>
         <source>删除</source>
         <translation>Delete</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="871"/>
+        <location filename="../../src/app/MainWindow.cpp" line="900"/>
         <source>隐藏</source>
         <translation>Hide</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="953"/>
+        <location filename="../../src/app/MainWindow.cpp" line="982"/>
         <source>本地照片边框水印工具 — 照片不会离开这台电脑。</source>
         <translation>Local photo framing &amp; watermark tool — photos never leave this PC.</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="962"/>
+        <location filename="../../src/app/MainWindow.cpp" line="991"/>
         <source>本软件使用了 Qt、exiv2、libpng、libjpeg、zlib 等开源组件，
 许可声明见安装目录 licenses/。</source>
         <translation>This software uses open-source components including Qt, exiv2, libpng, libjpeg, zlib.
 See licenses/ in the install folder.</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="972"/>
-        <location filename="../../src/app/MainWindow.cpp" line="1254"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1001"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1283"/>
         <source>关闭</source>
         <translation>Close</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1015"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1044"/>
         <source>正在导入照片，请等待完成后再导出</source>
         <translation>Photos are being imported; please wait before exporting</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1019"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1048"/>
         <source>请先选择导出目录</source>
         <translation>Please choose an export folder first</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1024"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1053"/>
         <source>导出目录不存在：%1</source>
         <translation>Export folder does not exist: %1</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1040"/>
-        <location filename="../../src/app/MainWindow.cpp" line="1055"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1069"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1084"/>
         <source>没有可导出的照片</source>
         <translation>No photos to export</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1065"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1094"/>
         <source>文件名冲突</source>
         <translation>File Name Conflict</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1066"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1095"/>
         <source>目标目录已有 %1 个同名文件，将被覆盖：
 %2
 
@@ -619,162 +628,162 @@ See licenses/ in the install folder.</translation>
 This cannot be undone. Continue?</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1108"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1137"/>
         <source>已取消导出，已导出 %1 张保留</source>
         <translation>Export canceled; %1 exported photos kept</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1114"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1143"/>
         <source>导出完成</source>
         <translation>Export Complete</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1121"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1150"/>
         <source>✓ 导出完成</source>
         <translation>✓ Export Complete</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1121"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1150"/>
         <source>导出失败</source>
         <translation>Export Failed</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1129"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1158"/>
         <source>成功 %1 · 跳过 %2 · 失败 %3</source>
         <translation>Succeeded %1 · Skipped %2 · Failed %3</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1137"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1166"/>
         <source>视觉无损</source>
         <translation>Visually Lossless</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1138"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1167"/>
         <source>平衡</source>
         <translation>Balanced</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1139"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1168"/>
         <source>自定义</source>
         <translation>Custom</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1142"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1171"/>
         <source>体积：%1 → %2 MB（%3）</source>
         <translation>Size: %1 → %2 MB (%3)</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1146"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1175"/>
         <source>  ·  %1s</source>
         <translation>  ·  %1s</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1156"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1185"/>
         <source>打开所在文件夹</source>
         <translation>Open Containing Folder</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1166"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1195"/>
         <source>失败详情…</source>
         <translation>Failure Details…</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1173"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1202"/>
         <source>确定</source>
         <translation>OK</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1187"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1216"/>
         <source>导出失败清单</source>
         <translation>Export Failures</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1196"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1225"/>
         <source>文件</source>
         <translation>File</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1196"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1225"/>
         <source>阶段</source>
         <translation>Stage</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1196"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1225"/>
         <source>原因</source>
         <translation>Reason</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1213"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1242"/>
         <source>重试失败项</source>
         <translation>Retry Failed Items</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1245"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1274"/>
         <source>导出诊断包</source>
         <translation>Export Diagnostics Package</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1270"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1299"/>
         <source>保存诊断包</source>
         <translation>Save Diagnostics Package</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1273"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1302"/>
         <source>诊断包 (*.zip)</source>
         <translation>Diagnostics Package (*.zip)</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1282"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1311"/>
         <source>创建临时目录失败</source>
         <translation>Failed to create temporary folder</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1351"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1380"/>
         <source>诊断包生成失败（tar 退出码 %1）</source>
         <translation>Failed to create diagnostics package (tar exit code %1)</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1354"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1383"/>
         <source>诊断包已保存：%1（含 %2 个失败文件副本）</source>
         <translation>Diagnostics package saved: %1 (with %2 failed file copies)</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1361"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1390"/>
         <source>诊断包生成失败（本机 tar.exe 不可用，需 Windows 10 1803+）</source>
         <translation>Failed to create diagnostics package (tar.exe unavailable; Windows 10 1803+ required)</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1432"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1461"/>
         <source>已导入 %1 张</source>
         <translation>Imported %1 photos</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1441"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1470"/>
         <source>清空列表</source>
         <translation>Clear List</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1442"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1471"/>
         <source>将移除全部 %1 张照片（不删除文件）。继续？</source>
         <translation>Remove all %1 photo(s) from the list (files are kept)? Continue?</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1481"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1510"/>
         <source>正在导出</source>
         <translation>Exporting</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1482"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1511"/>
         <source>导出进行中（已完成 %1 张）。退出将取消剩余任务，已导出的文件保留。确定退出吗？</source>
         <translation>Export in progress (%1 done). Quitting will cancel the remaining tasks; exported files are kept. Quit anyway?</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1495"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1524"/>
         <source>退出 FrameXT</source>
         <translation>Quit FrameXT</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="1496"/>
+        <location filename="../../src/app/MainWindow.cpp" line="1525"/>
         <source>还有 %1 张照片未导出。确定退出吗？</source>
         <translation>%1 photos have not been exported. Quit anyway?</translation>
     </message>
@@ -816,7 +825,7 @@ This cannot be undone. Continue?</translation>
 <context>
     <name>fxt::PreviewCanvas</name>
     <message>
-        <location filename="../../src/app/canvas/PreviewCanvas.cpp" line="225"/>
+        <location filename="../../src/app/canvas/PreviewCanvas.cpp" line="214"/>
         <source>拖入照片开始使用
 或点击选择 — 照片不会离开这台电脑
 支持 JPEG·PNG·WebP·TIFF</source>
@@ -825,7 +834,7 @@ or click to browse — photos never leave this PC
 Supports JPEG · PNG · WebP · TIFF</translation>
     </message>
     <message>
-        <location filename="../../src/app/canvas/PreviewCanvas.cpp" line="312"/>
+        <location filename="../../src/app/canvas/PreviewCanvas.cpp" line="306"/>
         <source>已隐藏水印 · 显示</source>
         <translation>Watermark hidden · Show</translation>
     </message>
@@ -833,7 +842,7 @@ Supports JPEG · PNG · WebP · TIFF</translation>
 <context>
     <name>fxt::ProjectController</name>
     <message>
-        <location filename="../../src/app/controllers/ProjectController.cpp" line="453"/>
+        <location filename="../../src/app/controllers/ProjectController.cpp" line="472"/>
         <source>自定义文本</source>
         <translation>Custom Text</translation>
     </message>
@@ -886,7 +895,7 @@ Supports JPEG · PNG · WebP · TIFF</translation>
     <message>
         <location filename="../../src/app/TemplateManagerDialog.cpp" line="148"/>
         <source>%1&#x3000;· 内置</source>
-        <translation>%1　· Built-in</translation>
+        <translation>%1&#x3000;· Built-in</translation>
     </message>
     <message>
         <location filename="../../src/app/TemplateManagerDialog.cpp" line="165"/>
@@ -965,7 +974,7 @@ Supports JPEG · PNG · WebP · TIFF</translation>
     <message>
         <location filename="../../src/app/TemplateManagerDialog.cpp" line="345"/>
         <source>确定删除模板「%1」吗？已应用该模板的照片会回落到默认样式。</source>
-        <translation>Delete template "%1"? Photos using it will fall back to the default style.</translation>
+        <translation>Delete template &quot;%1&quot;? Photos using it will fall back to the default style.</translation>
     </message>
 </context>
 <context>
@@ -1101,73 +1110,93 @@ Supports JPEG · PNG · WebP · TIFF</translation>
         <translation>Selected Element Style</translation>
     </message>
     <message>
-        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="137"/>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="144"/>
         <source>字号（相对画布宽）</source>
         <translation>Font size (relative to canvas width)</translation>
     </message>
     <message>
-        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="138"/>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="145"/>
         <source>字号</source>
         <translation>Size</translation>
     </message>
     <message>
-        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="143"/>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="150"/>
         <source>B</source>
         <translation>B</translation>
     </message>
     <message>
-        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="148"/>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="155"/>
         <source>I</source>
         <translation>I</translation>
     </message>
     <message>
-        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="157"/>
-        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="204"/>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="164"/>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="237"/>
         <source>文字颜色</source>
         <translation>Text Color</translation>
     </message>
     <message>
-        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="158"/>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="165"/>
         <source>颜色</source>
         <translation>Color</translation>
     </message>
     <message>
-        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="166"/>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="173"/>
         <source>字间距（相对画布宽）</source>
         <translation>Letter spacing (relative to canvas width)</translation>
     </message>
     <message>
-        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="167"/>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="174"/>
         <source>字间距</source>
         <translation>Spacing</translation>
     </message>
     <message>
-        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="172"/>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="179"/>
         <source>透明度</source>
         <translation>Opacity</translation>
     </message>
     <message>
-        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="175"/>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="182"/>
         <source>还原位置</source>
         <translation>Reset Position</translation>
     </message>
     <message>
-        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="254"/>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="193"/>
+        <source>更换 Logo…</source>
+        <translation>Replace Logo…</translation>
+    </message>
+    <message>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="195"/>
+        <source>选择本地图片替换品牌 Logo（建议透明底 PNG）</source>
+        <translation>Pick a local image to replace the brand logo (transparent PNG recommended)</translation>
+    </message>
+    <message>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="196"/>
+        <source>还原默认</source>
+        <translation>Reset to Default</translation>
+    </message>
+    <message>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="198"/>
+        <source>恢复按照片品牌自动匹配</source>
+        <translation>Restore automatic matching by photo brand</translation>
+    </message>
+    <message>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="287"/>
         <source>自定义文本内容</source>
         <translation>Custom text content</translation>
     </message>
     <message>
-        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="255"/>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="288"/>
         <source>留空恢复原字段值</source>
         <translation>Leave empty to restore the original value</translation>
     </message>
     <message>
-        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="277"/>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="310"/>
         <source>✕</source>
         <translation>✕</translation>
     </message>
     <message>
-        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="278"/>
+        <location filename="../../src/app/panels/WatermarkPanel.cpp" line="311"/>
         <source>删除此自定义文本</source>
         <translation>Delete this custom text</translation>
     </message>

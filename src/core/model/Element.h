@@ -50,6 +50,9 @@ struct Element
     Anchor anchor = Anchor::BottomLeft;
     QPointF offset;      // 相对锚点的偏移（相对单位 0~1）
     TextStyle style;
+    // Logo 专用：用户自定义图片路径（方案 A 元素级换标）。非空时渲染
+    // 优先加载该文件，空 = 品牌 EXIF 自动匹配（BrandRegistry）
+    QString customLogoPath;
     qreal logoScale = 0.6;  // Logo 专用：显示高 = logoScale × 所在行行高
     bool visible = true;
     bool locked = false;

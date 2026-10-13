@@ -1,5 +1,6 @@
 #include "render/ElementPainter.h"
 
+#include "render/CustomLogoCache.h"
 #include "render/FontKit.h"
 
 namespace fxt::ElementPainter {
@@ -53,8 +54,9 @@ void paintAll(QPainter *painter, const QList<Element> &elements,
     for (const Element &e : elements) {
         if (!layouts.contains(e.id))
             continue;
-        const QImage logo = (e.kind == ElementKind::Logo) ? logoResolver(e.fieldKey)
-                                                          : QImage();
+        const QImage logo = (e.kind == ElementKind::Logo)
+            ? CustomLogo::resolve(e, logoResolver(e.fieldKey))
+            : QImage();
         paint(painter, e, layouts.value(e.id), logo, canvasWidth);
     }
 }

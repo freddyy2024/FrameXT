@@ -423,6 +423,21 @@ void MainWindow::buildUi()
             &ProjectController::setElementStyle);
     connect(m_watermarkPanel, &WatermarkPanel::elementResetPositionRequested,
             m_project, &ProjectController::resetElementPosition);
+    // Logo 元素级换标（方案 A）：选图 → customLogoPath；还原 = 清空回落
+    connect(m_watermarkPanel, &WatermarkPanel::logoReplaceRequested, this,
+            [this](const QUuid &id) {
+                const QString path = QFileDialog::getOpenFileName(
+                    this, tr("更换 Logo"),
+                    QString(),
+                    tr("图片 (*.png *.jpg *.jpeg *.webp *.bmp)"));
+                if (path.isEmpty())
+                    return;
+                m_project->setElementCustomLogo(id, path);
+            });
+    connect(m_watermarkPanel, &WatermarkPanel::logoResetRequested, m_project,
+            [this](const QUuid &id) {
+                m_project->setElementCustomLogo(id, QString());
+            });
     connect(m_watermarkPanel, &WatermarkPanel::addCustomTextRequested, this,
             [this] {
                 const QUuid id = m_project->addCustomText();

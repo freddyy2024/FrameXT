@@ -23,9 +23,9 @@ QString shutterFraction(double seconds)
                                         8000 };
     for (const qint64 s : kStandard) {
         if (qAbs(denom - s) / s < 0.05)   // 5% 容差就近吸附
-            return QStringLiteral("1/%1").arg(s);
+            return QStringLiteral("1/%1s").arg(s);
     }
-    return QStringLiteral("1/%1").arg(rounded);
+    return QStringLiteral("1/%1s").arg(rounded);
 }
 } // namespace
 
@@ -47,7 +47,8 @@ QString ExifFormatter::fNumber(double value)
 {
     if (value <= 0)
         return QString();
-    return QStringLiteral("f/%1").arg(trimFloat(value, 1));
+    // 固定一位小数（用户指令：f/4 → "f/4.0"，至少 1 位）
+    return QStringLiteral("f/%1").arg(value, 0, 'f', 1);
 }
 
 QString ExifFormatter::apexFNumber(double apex)

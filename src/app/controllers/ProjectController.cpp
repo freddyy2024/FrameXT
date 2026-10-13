@@ -414,6 +414,25 @@ void ProjectController::setElementLiteral(const QUuid &elementId,
     }
 }
 
+void ProjectController::setElementCustomLogo(const QUuid &elementId,
+                                             const QString &path)
+{
+    PhotoDocument *doc = current();
+    if (!doc)
+        return;
+    for (Element &el : doc->templateState.elements) {
+        if (el.id == elementId && el.kind == ElementKind::Logo) {
+            if (el.customLogoPath == path)
+                return;
+            pushUndo(doc->id);
+            el.customLogoPath = path;   // 空 = 还原品牌自动匹配
+            emit documentChanged(doc->id);
+            scheduleRender();
+            return;
+        }
+    }
+}
+
 void ProjectController::removeElement(const QUuid &elementId)
 {
     PhotoDocument *doc = current();
@@ -701,7 +720,9 @@ FieldValueResolver ProjectController::fieldResolver(const PhotoDocument &doc) co
     const QHash<QString, QString> ov = doc.overrides.values;
     return [base, ov](const QString &fieldKey) -> QString {
         if (fieldKey == QLatin1String("paramString")) {
-            // 参数串：焦距/等效/光圈/快门/ISO 组合（§7.2 经典格式）
+            // 参数串：焦距/光圈/快门/ISO 组合（§7.2 经典格式）。
+            // 等效焦距不入串（用户指令 2026-10-14：与原版视觉不符且冗长），
+            // 仍作为独立字段 focalLengthEq 可单独启用
             QStringList parts;
             const auto append = [&parts, &base, &ov](const char *key) {
                 const QString v = ov.value(QLatin1String(key),
@@ -710,7 +731,6 @@ FieldValueResolver ProjectController::fieldResolver(const PhotoDocument &doc) co
                     parts.append(v);
             };
             append("focalLength");
-            append("focalLengthEq");
             append("fNumber");
             append("shutter");
             append("iso");

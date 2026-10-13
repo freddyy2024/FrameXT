@@ -114,13 +114,19 @@ void WatermarkPanel::buildStyleArea()
 {
     m_styleGroup = new QGroupBox(tr("选中元素样式"), this);
     m_styleGroup->setObjectName("styleGroup");
-    auto *layout = new QGridLayout(m_styleGroup);
+    auto *groupLayout = new QVBoxLayout(m_styleGroup);
     // 内边距（用户指令）：两侧 5px、顶部 10px（5+5 二次加高）、底部 10px
-    layout->setContentsMargins(5, 10, 5, 10);
+    groupLayout->setContentsMargins(5, 10, 5, 10);
+    groupLayout->setSpacing(6);
+
+    // —— 文字属性容器（选中 Logo 时整组隐藏，切显 Logo 换标行）——
+    m_textStyleRows = new QWidget(m_styleGroup);
+    auto *layout = new QGridLayout(m_textStyleRows);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->setHorizontalSpacing(6);
     layout->setVerticalSpacing(6);
 
-    m_fontCombo = new QFontComboBox(m_styleGroup);
+    m_fontCombo = new QFontComboBox(m_textStyleRows);
     // 默认按最长字体名自适应宽度，会把窄侧栏的最小宽度撑大（用户指令：
     // 侧栏调窄）；改按固定内容长度自适应，超宽字体名靠下拉列表展示
     m_fontCombo->setMinimumContentsLength(8);
@@ -130,21 +136,21 @@ void WatermarkPanel::buildStyleArea()
     // 其余字段两列对齐：标签 | 控件 | 标签 | 控件
     layout->addWidget(m_fontCombo, 0, 0, 1, 4);
 
-    m_fontScaleSpin = new QDoubleSpinBox(m_styleGroup);
+    m_fontScaleSpin = new QDoubleSpinBox(m_textStyleRows);
     m_fontScaleSpin->setRange(0.005, 0.10);
     m_fontScaleSpin->setSingleStep(0.002);
     m_fontScaleSpin->setDecimals(3);
     m_fontScaleSpin->setFixedWidth(96);   // 用户指令：原 72 加宽 1/3
     m_fontScaleSpin->setToolTip(tr("字号（相对画布宽）"));
-    layout->addWidget(new QLabel(tr("字号"), m_styleGroup), 1, 0);
+    layout->addWidget(new QLabel(tr("字号"), m_textStyleRows), 1, 0);
     layout->addWidget(m_fontScaleSpin, 1, 1);
 
-    m_boldButton = new QToolButton(m_styleGroup);
+    m_boldButton = new QToolButton(m_textStyleRows);
     m_boldButton->setObjectName(QStringLiteral("styleMiniButton"));
     m_boldButton->setText(tr("B"));
     m_boldButton->setCheckable(true);
     m_boldButton->setStyleSheet(QStringLiteral("font-weight: bold"));
-    m_italicButton = new QToolButton(m_styleGroup);
+    m_italicButton = new QToolButton(m_textStyleRows);
     m_italicButton->setObjectName(QStringLiteral("styleMiniButton"));
     m_italicButton->setText(tr("I"));
     m_italicButton->setCheckable(true);
@@ -152,30 +158,56 @@ void WatermarkPanel::buildStyleArea()
     layout->addWidget(m_boldButton, 1, 2);
     layout->addWidget(m_italicButton, 1, 3);
 
-    m_colorButton = new QPushButton(m_styleGroup);
+    m_colorButton = new QPushButton(m_textStyleRows);
     m_colorButton->setObjectName(QStringLiteral("colorButton"));
     m_colorButton->setFixedSize(40, 24);
     m_colorButton->setToolTip(tr("文字颜色"));
-    layout->addWidget(new QLabel(tr("颜色"), m_styleGroup), 2, 0);
+    layout->addWidget(new QLabel(tr("颜色"), m_textStyleRows), 2, 0);
     layout->addWidget(m_colorButton, 2, 1);
 
-    m_spacingSpin = new QDoubleSpinBox(m_styleGroup);
+    m_spacingSpin = new QDoubleSpinBox(m_textStyleRows);
     m_spacingSpin->setRange(-0.02, 0.20);
     m_spacingSpin->setSingleStep(0.002);
     m_spacingSpin->setDecimals(3);
     m_spacingSpin->setFixedWidth(72);
     m_spacingSpin->setToolTip(tr("字间距（相对画布宽）"));
-    layout->addWidget(new QLabel(tr("字间距"), m_styleGroup), 2, 2);
+    layout->addWidget(new QLabel(tr("字间距"), m_textStyleRows), 2, 2);
     layout->addWidget(m_spacingSpin, 2, 3);
 
-    m_opacitySlider = new QSlider(Qt::Horizontal, m_styleGroup);
+    m_opacitySlider = new QSlider(Qt::Horizontal, m_textStyleRows);
     m_opacitySlider->setRange(0, 100);
-    layout->addWidget(new QLabel(tr("透明度"), m_styleGroup), 3, 0);
+    layout->addWidget(new QLabel(tr("透明度"), m_textStyleRows), 3, 0);
     layout->addWidget(m_opacitySlider, 3, 1, 1, 3);
 
-    m_resetPosButton = new QPushButton(tr("还原位置"), m_styleGroup);
+    m_resetPosButton = new QPushButton(tr("还原位置"), m_textStyleRows);
     m_resetPosButton->setObjectName("secondaryButton");
     layout->addWidget(m_resetPosButton, 4, 0, 1, 4);
+    groupLayout->addWidget(m_textStyleRows);
+
+    // —— Logo 换标行（方案 A：元素级自定义 Logo，仅 Logo 选中时显示）——
+    m_logoStyleRow = new QWidget(m_styleGroup);
+    auto *logoLayout = new QHBoxLayout(m_logoStyleRow);
+    logoLayout->setContentsMargins(0, 0, 0, 0);
+    logoLayout->setSpacing(6);
+    auto *replaceLogoButton =
+        new QPushButton(tr("更换 Logo…"), m_logoStyleRow);
+    replaceLogoButton->setObjectName("secondaryButton");
+    replaceLogoButton->setToolTip(tr("选择本地图片替换品牌 Logo（建议透明底 PNG）"));
+    auto *resetLogoButton = new QPushButton(tr("还原默认"), m_logoStyleRow);
+    resetLogoButton->setObjectName("secondaryButton");
+    resetLogoButton->setToolTip(tr("恢复按照片品牌自动匹配"));
+    logoLayout->addWidget(replaceLogoButton, 1);
+    logoLayout->addWidget(resetLogoButton, 1);
+    groupLayout->addWidget(m_logoStyleRow);
+    m_logoStyleRow->hide();
+    connect(replaceLogoButton, &QPushButton::clicked, this, [this] {
+        if (!m_selectedId.isNull())
+            emit logoReplaceRequested(m_selectedId);
+    });
+    connect(resetLogoButton, &QPushButton::clicked, this, [this] {
+        if (!m_selectedId.isNull())
+            emit logoResetRequested(m_selectedId);
+    });
 
     // 样式区任一控件变化 → 汇总当前 TextStyle 发出
     auto emitStyle = [this] {
@@ -348,29 +380,36 @@ void WatermarkPanel::setSelected(const QUuid &id)
         row->style()->polish(row);
         row->setVisible(true);
     }
-    // 样式区：选中可样式化元素时展开并填充当前值
-    const TextStyle *style = nullptr;
+    // 样式区：Text 显示文字属性，Logo 显示换标行，其余（Divider）收起
+    const Element *selected = nullptr;
     for (const Element &el : m_elements) {
-        if (el.id == id && (el.kind == ElementKind::Text)) {
-            style = &el.style;
+        if (el.id == id && (el.kind == ElementKind::Text
+                            || el.kind == ElementKind::Logo)) {
+            selected = &el;
             break;
         }
     }
-    if (!style) {
+    if (!selected) {
         m_styleGroup->hide();
         return;
     }
     m_styleGroup->show();
+    const bool isLogo = selected->kind == ElementKind::Logo;
+    m_textStyleRows->setVisible(!isLogo);
+    m_logoStyleRow->setVisible(isLogo);
+    if (isLogo)
+        return;   // Logo 无文字属性可填
     m_updatingStyle = true;
-    m_fontCombo->setCurrentFont(QFont(style->fontFamily));
-    m_fontScaleSpin->setValue(style->fontScale);
-    m_boldButton->setChecked(style->bold);
-    m_italicButton->setChecked(style->italic);
-    m_spacingSpin->setValue(style->letterSpacing);
-    m_opacitySlider->setValue(qRound(style->opacity * 100));
-    m_colorButton->setProperty("color", style->color);
+    const TextStyle &ts = selected->style;
+    m_fontCombo->setCurrentFont(QFont(ts.fontFamily));
+    m_fontScaleSpin->setValue(ts.fontScale);
+    m_boldButton->setChecked(ts.bold);
+    m_italicButton->setChecked(ts.italic);
+    m_spacingSpin->setValue(ts.letterSpacing);
+    m_opacitySlider->setValue(qRound(ts.opacity * 100));
+    m_colorButton->setProperty("color", ts.color);
     m_colorButton->setStyleSheet(
-        QStringLiteral("background: %1").arg(style->color.name()));
+        QStringLiteral("background: %1").arg(ts.color.name()));
     m_updatingStyle = false;
 }
 

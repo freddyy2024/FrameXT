@@ -119,12 +119,19 @@ void TestLayout::rowPlacement() const
                                                f.resolver(), f.logoResolver());
     QCOMPARE(layouts.size(), 5);
 
-    // 第一行元素垂直居中于 row0（y=751, h=54）→ 中心 y ≈ 778（字体度量取整允许 ±1）
+    // 紧凑行距（2026-10-14 用户指令）：两行按内容高成组、带内整体居中。
+    // 本例两行内容等高（元素默认样式）→ 上下留白对称（±2 容差吸收度量取整）
     const QRectF brandRect = layouts.value(f.elements[0].id).pxRect;
-    QVERIFY2(qAbs(brandRect.center().y() - 778.0) <= 1.0, "brand 垂直居中偏差过大");
-    // 第二行（lens）垂直居中于 row1（y=805, h=36）→ 中心 ≈ 823（允许 ±1）
     const QRectF lensRect = layouts.value(f.elements[4].id).pxRect;
-    QVERIFY2(qAbs(lensRect.center().y() - 823.0) <= 1.0, "lens 垂直居中偏差过大");
+    const qreal bandTop = f.plan.photoRect.bottom() + 1.0;
+    const qreal bandBottom = bandTop + f.plan.exBandHeight;
+    QVERIFY2(qAbs((brandRect.top() - bandTop) - (bandBottom - lensRect.bottom()))
+                 <= 2.0,
+             "紧凑组未在信息带内垂直居中");
+    // 行间隙紧凑：≤ 带高 12%（kRowGapRatio 8% + 度量余量）
+    QVERIFY2(lensRect.top() - brandRect.bottom()
+                 <= f.plan.exBandHeight * 0.12,
+             "行间距超出紧凑档");
     QVERIFY(lensRect.top() > brandRect.bottom());
     // 行内水平排布：brand 在 logo 左侧
     QVERIFY(brandRect.right() < layouts.value(f.elements[1].id).pxRect.left());
@@ -185,11 +192,13 @@ void TestLayout::emptyRowFreesSpaceForNext() const
     const auto layouts = LayoutEngine::resolve(f.elements, { row0, row1 }, f.plan,
                                                f.resolver(), f.logoResolver());
     QVERIFY(!layouts.contains(f.elements[1].id));   // 缺图 Logo 剔除
-    // 行0 剔除后 lens 前移：垂直居中于 y=751 起的 36 高行 → 中心 ≈769
-    //（未前移则居中于 y=805 起的行 → 823）
+    // 行0 剔除后 lens 独占信息带：紧凑布局下带内垂直居中（中心 ≈ 带中线）
+    //（未前移则明显偏带底）
     const QRectF lensRect = layouts.value(f.elements[4].id).pxRect;
-    QVERIFY2(qAbs(lensRect.center().y() - 769.0) <= 1.0,
-             "空行未释放空间：lens 未前移到信息带顶");
+    const qreal bandTop = f.plan.photoRect.bottom() + 1.0;
+    QVERIFY2(qAbs(lensRect.center().y() - (bandTop + f.plan.exBandHeight / 2.0))
+                 <= 1.0,
+             "空行未释放空间：lens 未在信息带内居中");
 }
 
 void TestLayout::missingLogoDroppedFromRow() const

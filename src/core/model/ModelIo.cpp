@@ -59,6 +59,8 @@ QJsonObject toJson(const Element &e)
     s["color"] = colorToJson(e.style.color);
     s["opacity"] = e.style.opacity;
     o["style"] = s;
+    if (!e.customLogoPath.isEmpty())
+        o["customLogoPath"] = e.customLogoPath;   // 缺省不写键（向后兼容）
     o["logoScale"] = e.logoScale;
     o["visible"] = e.visible;
     o["locked"] = e.locked;
@@ -88,6 +90,7 @@ Element elementFromJson(const QJsonObject &o)
         e.style.color = colorFromJson(s.value("color").toObject(), e.style.color);
         e.style.opacity = s.value("opacity").toDouble(e.style.opacity);
     }
+    e.customLogoPath = o.value("customLogoPath").toString();
     e.logoScale = o.value("logoScale").toDouble(e.logoScale);
     e.visible = o.value("visible").toBool(e.visible);
     e.locked = o.value("locked").toBool(e.locked);
