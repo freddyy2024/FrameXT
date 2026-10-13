@@ -157,10 +157,11 @@ void WatermarkPanel::buildStyleArea()
     m_italicButton->setCheckable(true);
     m_italicButton->setStyleSheet(QStringLiteral("font-style: italic"));
     // B/I 按钮容器（用户指令：与字号框等距左对齐排列，间距 6px）——
-    // 直接入 grid 列会被字间距输入框（96px 列宽）撑开
+    // 直接入 grid 列会被字间距输入框（96px 列宽）撑开；左侧 margin 4px
+    // 补足与字号框的视觉间距（用户指令：粗体按钮左侧留 margin）
     auto *styleBtns = new QWidget(m_textStyleRows);
     auto *btnLay = new QHBoxLayout(styleBtns);
-    btnLay->setContentsMargins(0, 0, 0, 0);
+    btnLay->setContentsMargins(4, 0, 0, 0);
     btnLay->setSpacing(6);
     btnLay->addWidget(m_boldButton);
     btnLay->addWidget(m_italicButton);
