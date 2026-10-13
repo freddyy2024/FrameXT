@@ -145,10 +145,6 @@ void WatermarkPanel::buildStyleArea()
     m_fontScaleSpin->setToolTip(tr("字号（相对画布宽）"));
     layout->addWidget(new QLabel(tr("字号"), m_textStyleRows), 1, 0);
     layout->addWidget(m_fontScaleSpin, 1, 1);
-    // 字号框右侧 10px 间距（用户指令；列距 6 + 固定 spacer 4）
-    layout->addItem(new QSpacerItem(4, 1, QSizePolicy::Fixed,
-                                    QSizePolicy::Minimum),
-                    1, 2);
 
     m_boldButton = new QToolButton(m_textStyleRows);
     m_boldButton->setObjectName(QStringLiteral("styleMiniButton"));
@@ -160,8 +156,16 @@ void WatermarkPanel::buildStyleArea()
     m_italicButton->setText(tr("I"));
     m_italicButton->setCheckable(true);
     m_italicButton->setStyleSheet(QStringLiteral("font-style: italic"));
-    layout->addWidget(m_boldButton, 1, 3);
-    layout->addWidget(m_italicButton, 1, 4);
+    // B/I 按钮容器（用户指令：与字号框等距左对齐排列，间距 6px）——
+    // 直接入 grid 列会被字间距输入框（96px 列宽）撑开
+    auto *styleBtns = new QWidget(m_textStyleRows);
+    auto *btnLay = new QHBoxLayout(styleBtns);
+    btnLay->setContentsMargins(0, 0, 0, 0);
+    btnLay->setSpacing(6);
+    btnLay->addWidget(m_boldButton);
+    btnLay->addWidget(m_italicButton);
+    btnLay->addStretch();
+    layout->addWidget(styleBtns, 1, 2, 1, 3);
 
     m_colorButton = new QPushButton(m_textStyleRows);
     m_colorButton->setObjectName(QStringLiteral("colorButton"));
