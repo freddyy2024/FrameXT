@@ -27,6 +27,9 @@ constexpr qreal kRowGapRatio = 0.08;
 // Logo 最大宽度（相对其度量参照高）：横条 Logo（Canon 4.8:1 等）
 // 按 logoScale 全高渲染时过宽失衡，限宽后高度等比缩小
 constexpr qreal kLogoMaxWidthRatio = 2.0;
+// 单行补偿（用户指令 2026-10-15）：镜头缺失时机型放大一号（15%），
+// 单行由紧凑落位自然在带内垂直居中
+constexpr qreal kSingleLineBoost = 1.15;
 
 // 元素最终展示文本：literal（自由文本/覆盖值）优先，其次字段解析。
 // 空串视为不可见（行组收紧剔除，不占位）。
@@ -205,6 +208,7 @@ QHash<QUuid, ElementLayout> LayoutEngine::resolve(const QList<Element> &elements
         qreal leftScale = 1.0;
         qreal rightScale = 1.0;
         qreal contentH = 0.0;   // 行内容高（非跨带元素的最大高）
+        qreal boost = 1.0;      // 单行补偿字号放大（机型独行时 1.15）
     };
     auto isSpanBand = [](const Pending &p) {
         return p.element->kind == ElementKind::Logo
@@ -246,6 +250,36 @@ QHash<QUuid, ElementLayout> LayoutEngine::resolve(const QList<Element> &elements
         rowSlots.append(s);
     }
 
+    // 单行补偿（用户指令 2026-10-15）：镜头实际不可见（隐藏或字段值空，
+    // 与 collectPending 同判定规则）时，机型字号放大一号重测——放大系数
+    // 并入 fontScale 链（收缩比 × boost），度量与绘制同源；单行由紧凑
+    // 落位自然在带内垂直居中
+    auto fieldPlacedVisible = [&](const char *key) {
+        const QString fk = QString::fromLatin1(key);
+        for (const Element &e : elements) {
+            if (e.fieldKey != fk)
+                continue;
+            if (!e.visible)
+                continue;
+            if (e.hasCustomPosition)
+                return true;   // 手动定位独立渲染，视为存在
+            return !displayText(e, resolver).isEmpty();
+        }
+        return false;
+    };
+    if (!fieldPlacedVisible("lens")) {
+        for (RowSlot &s : rowSlots) {
+            for (Pending &p : s.left) {
+                if (p.element->fieldKey == QLatin1String("model")
+                    && p.element->kind == ElementKind::Text) {
+                    s.boost = kSingleLineBoost;
+                    p.size = measure(*p.element, p.text, p.logo, canvasW,
+                                     bandRect.height(), kSingleLineBoost);
+                }
+            }
+        }
+    }
+
     for (RowSlot &s : rowSlots) {
         if (s.right.isEmpty() && s.left.isEmpty())
             continue;
@@ -277,7 +311,10 @@ QHash<QUuid, ElementLayout> LayoutEngine::resolve(const QList<Element> &elements
                 ? qMax(0.0, bandRect.width() - textColW - decorColW
                                 - gapFor(s.contentH))
                 : bandRect.width();
-            s.leftScale = shrinkIfOverflow(s.left, avail, s.contentH, false);
+            // 放大系数并入缩放链：最终 fontScale = 收缩比 × boost，
+            // 绘制字号与度量保持同源（超宽仍按 0.7 下限收缩兜底）
+            s.leftScale = shrinkIfOverflow(s.left, avail, s.contentH, false)
+                          * s.boost;
             // 收缩后重算内容高
             qreal contentH = 0.0;
             for (const Pending &p : s.left + s.right) {

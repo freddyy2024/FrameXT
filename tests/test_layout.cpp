@@ -32,7 +32,8 @@ struct Fixture
         Element brand;
         brand.id = QUuid::createUuid();
         brand.kind = ElementKind::Text;
-        brand.fieldKey = QStringLiteral("make");
+        // 默认模板左块第一行 = 机型（2026-10 布局改版，原 make 元素退役）
+        brand.fieldKey = QStringLiteral("model");
         f.elements.append(brand);
 
         Element logo;
@@ -59,7 +60,7 @@ struct Fixture
         lens.fieldKey = QStringLiteral("lens");
         f.elements.append(lens);
 
-        f.fields.insert("make", "Canon");
+        f.fields.insert("model", "Canon");
         f.fields.insert("paramString", "42mm · f/5.6");
         f.fields.insert("lens", "RF 24-70mm");
 
@@ -106,6 +107,7 @@ private slots:
     void logoAspectRatio() const;
     void dividerProportions() const;
     void paintTextRendersPixels() const;
+    void singleLineModelBoost() const;
 };
 
 void TestLayout::rowPlacement() const
@@ -261,6 +263,35 @@ void TestLayout::customPositionOverridesRow() const
     QCOMPARE(rect.left(), expectLeft);
     QCOMPARE(rect.top(), expectTop);
     QCOMPARE(layouts.size(), 1);
+}
+
+void TestLayout::singleLineModelBoost() const
+{
+    // 单行补偿（用户指令 2026-10-15）：镜头缺失时机型放大一号并在带内垂直居中
+    Fixture f = Fixture::make();
+    f.fields.remove("lens");   // 镜头字段缺失 → 行 2 整行剔除
+    const LayoutRow row0 = f.makeRow(0, 0.5, { f.elements[0].id, f.elements[1].id,
+                                               f.elements[2].id, f.elements[3].id });
+    const LayoutRow row1 = f.makeRow(1, 0.5, { f.elements[4].id });
+    const auto layouts = LayoutEngine::resolve(f.elements, { row0, row1 }, f.plan,
+                                               f.resolver(), f.logoResolver());
+    QCOMPARE(layouts.size(), 4);   // lens 剔除，其余 4 元素在
+
+    // 放大系数进入布局结果（绘制字号 = 样式字号 × fontScale，度量同源）
+    QCOMPARE(layouts.value(f.elements[0].id).fontScale, 1.15);
+    // 单行带内垂直居中
+    const QRectF modelRect = layouts.value(f.elements[0].id).pxRect;
+    const qreal bandTop = f.plan.photoRect.bottom() + 1.0;
+    QVERIFY2(qAbs(modelRect.center().y()
+                      - (bandTop + f.plan.exBandHeight / 2.0)) <= 1.0,
+             "单行机型未在信息带内垂直居中");
+
+    // 对照：镜头在场时不放大
+    Fixture g = Fixture::make();
+    const auto layouts2 = LayoutEngine::resolve(g.elements, { row0, row1 },
+                                                g.plan, g.resolver(),
+                                                g.logoResolver());
+    QCOMPARE(layouts2.value(g.elements[0].id).fontScale, 1.0);
 }
 
 void TestLayout::logoAspectRatio() const
