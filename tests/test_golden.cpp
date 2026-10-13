@@ -3,8 +3,11 @@
 // 约定：
 //  - 基准图位于 tests/golden/<template>_<WxH>.png（源码树内，随仓库入库）
 //  - 首次运行自动生成基准并 SKIP，需人工目检后提交（G1 质量门）
-//  - 像素级一致断言：本机同 Qt/字体环境可复现；跨机/跨 Qt 版本差异
-//    由 CI 阶段统一基准环境处理（M6 前不入 CI）
+//  - 文字渲染用随包嵌入字体（思源黑体，qrc 挂载）：系统字体光栅化会随
+//    Windows 字体缓存/更新漂移（2026-10-13 实证：微软雅黑过夜微变导致
+//    9 基准全红、数千超差点），嵌入字体让本测试跨机跨日可复现，M6 进
+//    CI 的前提
+#include <QFontDatabase>
 #include <QImageWriter>
 #include <QPainter>
 #include <QTemporaryDir>
@@ -19,6 +22,18 @@ using namespace fxt::BuiltinTemplates;
 namespace {
 
 constexpr int kPreviewMaxEdge = 2048;   // 与 PreviewCanvas 预览缩放规则一致
+
+// 黄金图专用字体：随包嵌入，与系统环境解耦（进程内必须先注册资源）
+const QFont &goldenFont()
+{
+    static const QFont s_font = [] {
+        const int id = QFontDatabase::addApplicationFont(
+            QStringLiteral(":/fonts/SourceHanSansSC-Regular.otf"));
+        const QStringList families = QFontDatabase::applicationFontFamilies(id);
+        return QFont(families.value(0, QStringLiteral("Source Han Sans SC")));
+    }();
+    return s_font;
+}
 
 QString goldenDir()
 {
@@ -48,7 +63,7 @@ LogoResolver goldenLogoResolver()
         img.fill(Qt::transparent);
         QPainter p(&img);
         p.setPen(Qt::black);
-        p.setFont(QFont(QStringLiteral("Arial"), 40, QFont::Bold));
+        p.setFont(QFont(goldenFont().family(), 40, QFont::Bold));
         p.drawText(img.rect(), Qt::AlignCenter, QStringLiteral("BRAND"));
         p.end();
         return img;
@@ -71,6 +86,10 @@ QImage renderGolden(const QString &templateId, const QSize &photoSize)
     state.templateId = templateId;
     // 按模板取 spec：blur 模板为白字（与产品视觉一致），bottom/around 黑字
     state.elements = defaultSpec(templateId).elements;
+    // 元素默认字体为系统字体（Element.h "Microsoft YaHei UI"）——黄金图
+    // 覆写为随包嵌入字体，根除系统字体光栅化漂移（见文件头说明）
+    for (fxt::Element &el : state.elements)
+        el.style.fontFamily = goldenFont().family();
 
     RenderRequest req;
     req.photoId = QUuid::createUuid();

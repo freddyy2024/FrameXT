@@ -21,7 +21,9 @@ target_link_libraries(test_layout PRIVATE framext_core Qt6::Core Qt6::Gui Qt6::T
 add_executable(test_pipeline test_pipeline.cpp)
 target_link_libraries(test_pipeline PRIVATE framext_core Qt6::Core Qt6::Gui Qt6::Test)
 
-add_executable(test_golden test_golden.cpp)
+# M1.6 黄金图：链 app 资源——文字渲染用随包思源黑体（跨环境可复现，
+# 系统字体光栅化会随 Windows 字体缓存/更新漂移）
+add_executable(test_golden test_golden.cpp ../resources.qrc)
 target_link_libraries(test_golden PRIVATE framext_core Qt6::Core Qt6::Gui Qt6::Test)
 # 黄金图基准写回源码树 tests/golden/
 target_compile_definitions(test_golden PRIVATE
