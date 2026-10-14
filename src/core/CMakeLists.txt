@@ -3,6 +3,7 @@
 # 禁止 Widgets/Concurrent/Quick —— 保证领域逻辑可脱离 UI 独立单测与复用。
 add_library(framext_core STATIC
     AppInfo.cpp
+    AppPaths.cpp
     model/ModelIo.cpp
     model/TemplateSpec.cpp
     metadata/BrandRegistry.cpp

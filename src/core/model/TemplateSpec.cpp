@@ -1,5 +1,7 @@
 #include "model/TemplateSpec.h"
 
+#include "AppPaths.h"
+
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -7,7 +9,6 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSaveFile>
-#include <QStandardPaths>
 #include <QUuid>
 
 #include <algorithm>
@@ -146,9 +147,8 @@ namespace {
 QString &userDir()
 {
     static QString s_dir = [] {
-        const QString base =
-            QStandardPaths::writableLocation(
-                QStandardPaths::AppLocalDataLocation);
+        // 便携模式（M6.1）下随程序目录（<exeDir>/Data），否则 %APPDATA%
+        const QString base = AppPaths::appDataRoot();
         return base + QLatin1String("/templates");
     }();
     return s_dir;

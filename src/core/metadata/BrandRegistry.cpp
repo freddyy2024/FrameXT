@@ -1,11 +1,12 @@
 #include "metadata/BrandRegistry.h"
 
+#include "AppPaths.h"
+
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QStandardPaths>
 
 #include <algorithm>
 
@@ -166,8 +167,8 @@ bool tableFromJson(const QJsonDocument &doc, BrandTable &out)
 QString &userFile()
 {
     static QString s_file = [] {
-        const QString base = QStandardPaths::writableLocation(
-            QStandardPaths::AppLocalDataLocation);
+        // 便携模式（M6.1）下随程序目录（<exeDir>/Data），否则 %APPDATA%
+        const QString base = AppPaths::appDataRoot();
         return base + QLatin1String("/brands.json");
     }();
     return s_file;

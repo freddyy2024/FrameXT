@@ -43,9 +43,28 @@ del /q "%DEPLOY%\imageformats\qpdf.dll" 2>nul
 del /q "%DEPLOY%\imageformats\qsvg.dll" 2>nul
 if exist "%DEPLOY%\tls" rmdir /s /q "%DEPLOY%\tls"
 
+rem open-source licenses ride in the deploy tree so the installer and the
+rem portable zip share one source of truth (iss packs the whole tree)
+xcopy /e /i /y "licenses" "%DEPLOY%\licenses" >nul || exit /b 1
+
 rem ---- 3) installer ----
 echo [package] Inno Setup compile...
 "%ISCC%" "packaging\framext.iss" || exit /b 1
 
-echo [package] DONE: dist\FrameXT-*-setup.exe
+rem ---- 4) portable zip: deploy tree + marker + readme ----
+rem marker file routes app data to <exeDir>\Data at runtime (core/AppPaths)
+rem version read from exe VERSIONINFO (single source: root CMakeLists project())
+for /f %%v in ('powershell -NoProfile -Command "(Get-Item '%DEPLOY%\framext.exe').VersionInfo.ProductVersion"') do set "APP_VER=%%v"
+if not defined APP_VER (
+    echo [ERROR] Cannot read exe ProductVersion
+    exit /b 1
+)
+echo [package] portable zip (v%APP_VER%)...
+copy /y "packaging\portable-readme.txt" "%DEPLOY%\README.txt" >nul || exit /b 1
+type nul > "%DEPLOY%\FrameXT.portable"
+set "PORTABLE_ZIP=%ROOT%\dist\FrameXT-%APP_VER%-portable.zip"
+powershell -NoProfile -Command "Compress-Archive -Path $env:DEPLOY\* -DestinationPath $env:PORTABLE_ZIP -Force" || exit /b 1
+del "%DEPLOY%\FrameXT.portable" "%DEPLOY%\README.txt" >nul 2>&1
+
+echo [package] DONE: dist\FrameXT-%APP_VER%-setup.exe + dist\FrameXT-%APP_VER%-portable.zip
 exit /b 0

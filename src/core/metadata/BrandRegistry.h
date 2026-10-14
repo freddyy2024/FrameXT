@@ -38,7 +38,8 @@ BrandDef match(const QString &make, const QString &model);
 BrandDef others();
 
 // —— 用户覆盖层（M5.4，E5 品牌别名库）——
-// 覆盖文件缺省 = AppLocalDataLocation/brands.json，通常由用户手动创建
+// 覆盖文件缺省 = AppPaths::appDataRoot()/brands.json（便携模式随程序
+// 目录），通常由用户手动创建
 // （或未来 Logo 管理器写入）。空串 = 还原缺省路径。文件缺失/损坏时
 // 忽略覆盖层（qWarning），基底表照常工作——品牌识别零崩溃红线。
 void setUserBrandsFile(const QString &path);

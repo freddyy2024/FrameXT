@@ -47,8 +47,8 @@ QList<TemplateSpec> builtinSpecs();
 QList<TemplateSpec> allSpecs();
 TemplateSpec specFor(const QString &templateId);   // 未知 id 回落 bottom
 
-// 用户模板持久化。目录缺省 = QStandardPaths::AppLocalDataLocation
-// /templates；测试注入临时目录（内存缓存同步失效）。
+// 用户模板持久化。目录缺省 = AppPaths::appDataRoot()/templates（便携
+// 模式随程序目录）；测试注入临时目录（内存缓存同步失效）。
 void setUserTemplatesDir(const QString &dir);
 QString userTemplatesDir();
 // 保存（id 已存在则覆盖；新模板 id 为空时生成 UUID）。返回实际 id。

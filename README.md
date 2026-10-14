@@ -31,6 +31,17 @@ ctest --preset win-debug
 
 > M0 骨架阶段（无 vcpkg 依赖）可加 `-DVCPKG_MANIFEST_INSTALL=OFF` 跳过 manifest 安装。
 
+## 打包（Windows）
+
+在 VS2022 开发者命令行（x64）中执行 `scripts\package-win.bat`，一次产出两种发行物（`dist/`）：
+
+| 产物 | 说明 |
+|---|---|
+| `FrameXT-<版本>-setup.exe` | Inno Setup 安装包：简体中文向导、带应用图标、可选桌面快捷方式；用户数据在 `%APPDATA%\FrameXT` |
+| `FrameXT-<版本>-portable.zip` | 免安装便携版：解压即用、无需管理员权限；包根的 `FrameXT.portable` 空标记文件使数据（设置 / 品牌别名库 / 自定义模板）落在程序目录 `Data/` 下——整个文件夹可 U 盘携带，删除即卸载 |
+
+便携检测逻辑见 `src/core/AppPaths.cpp`；安装包不含标记文件，行为不受影响。
+
 ## 目录结构
 
 ```

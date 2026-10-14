@@ -43,10 +43,10 @@ Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.i
 Name: "desktopicon"; Description: "创建桌面快捷方式(&D)"; GroupDescription: "附加任务："
 
 [Files]
-; 应用与运行时（windeployqt + vcpkg DLL，package-win.bat 装配）
+; 应用与运行时 + licenses（windeployqt + vcpkg DLL，package-win.bat 装配；
+; 许可全文已并入部署树——安装包与 portable zip 共用同一棵树，关于框承诺：
+; GPLv3 / 思源黑体 OFL / Aileron CC0 随包）
 Source: "..\build\deploy\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
-; 开源许可归档（关于框承诺：GPLv3 / 思源黑体 OFL / Aileron CC0 随包）
-Source: "..\licenses\*"; DestDir: "{app}\licenses"; Flags: recursesubdirs ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

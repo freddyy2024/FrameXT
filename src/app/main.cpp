@@ -2,12 +2,14 @@
 #include <QFile>
 #include <QFont>
 #include <QFontDatabase>
+#include <QFileInfo>
 #include <QIcon>
 #include <QLibraryInfo>
 #include <QSettings>
 #include <QTranslator>
 
 #include "AppInfo.h"
+#include "AppPaths.h"
 #include "MainWindow.h"
 
 int main(int argc, char *argv[])
@@ -18,6 +20,17 @@ int main(int argc, char *argv[])
     QApplication::setApplicationVersion(fxt::AppInfo::versionText());
     QApplication::setOrganizationName(fxt::AppInfo::kOrgName);
     QApplication::setOrganizationDomain(fxt::AppInfo::kOrgDomain);
+
+    // 便携模式（M6.1）：exe 同级存在 FrameXT.portable 标记时，设置一并
+    // 落 <exeDir>/Data（ini），不写宿主注册表——整个目录可携带、删除即
+    // 卸载；安装版保持默认（注册表），互不干扰。数据文件（品牌覆盖层、
+    // 用户模板）由 AppPaths::appDataRoot 同步切换，见 core/AppPaths.cpp
+    if (QFileInfo::exists(QCoreApplication::applicationDirPath()
+                          + QStringLiteral("/FrameXT.portable"))) {
+        QSettings::setDefaultFormat(QSettings::IniFormat);
+        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope,
+                           fxt::AppPaths::appDataRoot());
+    }
 
     // i18n（3.9）：源语言 = 简体中文（代码内 tr 源串），zh-TW/en 走 .qm；
     // 语言 key 持久化（3.10），切换后重启生效（TitleBar 菜单触发）

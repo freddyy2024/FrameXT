@@ -37,6 +37,10 @@ target_link_libraries(test_metadata PRIVATE framext_platform Qt6::Core Qt6::Gui 
 add_executable(test_exif test_exif.cpp)
 target_link_libraries(test_exif PRIVATE framext_core Qt6::Core Qt6::Gui Qt6::Test)
 
+# M6.1 便携版：AppPaths 数据根路由（标记文件 → <exeDir>/Data）
+add_executable(test_paths test_paths.cpp)
+target_link_libraries(test_paths PRIVATE framext_core Qt6::Core Qt6::Test)
+
 # M2.5 往返测试集（真实样张，FXT_SAMPLE_DIR 环境变量指定，缺失时 SKIP）
 add_executable(test_samples test_samples.cpp)
 target_link_libraries(test_samples PRIVATE framext_core framext_platform Qt6::Core Qt6::Gui Qt6::Test)
@@ -50,6 +54,7 @@ add_test(NAME test_pipeline COMMAND test_pipeline)
 add_test(NAME test_golden COMMAND test_golden)
 add_test(NAME test_metadata COMMAND test_metadata)
 add_test(NAME test_exif COMMAND test_exif)
+add_test(NAME test_paths COMMAND test_paths)
 # M2 收尾：BrandRegistry 品牌识别 + SensorRegistry 画幅倍率/等效焦距回退（R8）
 # M5.4 起链 app 资源：断言 :/brands/brands.json 与 C++ 内置表一致
 add_executable(test_brand test_brand.cpp ../resources.qrc)
