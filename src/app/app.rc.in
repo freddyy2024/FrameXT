@@ -1,0 +1,35 @@
+﻿// FrameXT Windows 版本资源与 exe 图标（M6.1 打包）。
+// 由 CMakeLists configure_file 生成 app.rc：图标与版本号注入
+// （源 = 根 CMakeLists project() VERSION，勿手改本模板版本字面量）。
+// 仅 ASCII：rc.exe 默认按代码页解析，非 ASCII 字面量会乱码。
+#include <windows.h>
+
+1 ICON "@FRAMEXT_ICON_PATH@"
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION    @FRAMEXT_VERSION_CSV@
+ PRODUCTVERSION @FRAMEXT_VERSION_CSV@
+ FILEFLAGSMASK  0x3fL
+ FILEFLAGS      0x0L
+ FILEOS         VOS_NT_WINDOWS32
+ FILETYPE       VFT_APP
+ FILESUBTYPE    0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName",      "FrameXT"
+            VALUE "FileDescription",  "FrameXT Photo Frame Tool"
+            VALUE "FileVersion",      "@FRAMEXT_VERSION@"
+            VALUE "ProductName",      "FrameXT"
+            VALUE "ProductVersion",   "@FRAMEXT_VERSION@"
+            VALUE "OriginalFilename", "framext.exe"
+            VALUE "LegalCopyright",   "GPLv3+"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END

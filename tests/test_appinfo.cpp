@@ -20,7 +20,7 @@ private slots:
 void TestAppInfo::appNameMatchesBrand()
 {
     QCOMPARE(AppInfo::kAppName, "FrameXT");
-    QCOMPARE(AppInfo::versionText(), QStringLiteral("0.1.0"));
+    QCOMPARE(AppInfo::versionText(), QStringLiteral("1.1.0"));
 }
 
 void TestAppInfo::versionIsSemantic()

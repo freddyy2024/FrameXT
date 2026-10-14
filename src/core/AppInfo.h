@@ -9,7 +9,7 @@ namespace fxt {
 struct AppInfo
 {
     static constexpr const char *kAppName   = "FrameXT";
-    static constexpr const char *kVersion   = "0.1.0";
+    static constexpr const char *kVersion   = "1.1.0";
     static constexpr const char *kOrgName   = "FrameXT";
     static constexpr const char *kOrgDomain = "framext.com";
     static constexpr const char *kHomePage  = "https://framext.com";

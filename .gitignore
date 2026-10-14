@@ -15,3 +15,7 @@ compile_commands.json
 # 系统文件
 Thumbs.db
 .DS_Store
+
+# packaging output (M6.1)
+dist/
+RCa*

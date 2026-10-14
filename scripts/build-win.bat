@@ -20,6 +20,7 @@ if "%STEP%"=="configure" goto :configure
 if "%STEP%"=="build" goto :build
 if "%STEP%"=="test" goto :test
 if "%STEP%"=="all" goto :configure
+if "%STEP%"=="release" goto :release
 echo [ERROR] Unknown step: %STEP%
 exit /b 1
 
@@ -33,3 +34,11 @@ if not "%STEP%"=="all" exit /b 0
 
 :test
 ctest --preset win-debug || exit /b 1
+exit /b 0
+
+rem ---- win-release: packaging base. MUST run inside VS env (vcvars above):
+rem ---- otherwise CMake falls back to MinGW gcc against MSVC Qt and breaks.
+:release
+cmake --preset win-release || exit /b 1
+cmake --build --preset win-release || exit /b 1
+ctest --preset win-release --output-on-failure || exit /b 1
