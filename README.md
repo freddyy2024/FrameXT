@@ -67,6 +67,11 @@ QPainter 自绘，元数据改用 exiv2，不再依赖 Go 运行时与 libvips�
 （1.x 为 Flutter 版，2.x 起 Qt C++ 版），2.x 的用户数据落在 `%APPDATA%\FrameXT`
 （安装版）或程序目录 `Data/`（便携版），正常运行无需管理员权限。
 
+## 开发方式
+
+本项目是一次 vibe coding 实践：代码由 AI 辅助生成（Claude Code + DeepSeek
+V4.1 Flash + GLM-5.3-Flash），需求、设计与验收由人工主导。
+
 ## 构建（Windows）
 
 依赖：Qt 6（msvc2022_64 组件）、Visual Studio 2022（「使用 C++ 的桌面开发」工作负载，
