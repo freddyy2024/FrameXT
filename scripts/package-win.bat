@@ -4,9 +4,42 @@ rem Usage: scripts\package-win.bat   (assumes build-win.bat release already done
 rem        this script re-runs the release build to guarantee freshness)
 rem NOTE: keep this file ASCII-only (cmd.exe parses batch in legacy codepage)
 setlocal
-set "VS_VCVARS=D:\MyApp\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat"
-set "QT_BIN=D:\MyApp\Qt\6.11.1\msvc2022_64\bin"
-set "ISCC=D:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+
+rem ---- locate Visual Studio via vswhere (ships with the VS installer) ----
+rem NOTE: no parenthesized blocks below -- variables containing "(x86)" in
+rem their expansion would terminate the block early when echoed inside it.
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+if not exist "%VSWHERE%" goto :no_vswhere
+for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_ROOT=%%i"
+if defined VS_ROOT goto :have_vs
+echo [ERROR] No Visual Studio with C++ x64 tools found (vswhere)
+exit /b 1
+:no_vswhere
+echo [ERROR] vswhere.exe not found. Install Visual Studio 2022 with the
+echo         "Desktop development with C++" workload.
+exit /b 1
+:have_vs
+set "VS_VCVARS=%VS_ROOT%\VC\Auxiliary\Build\vcvarsall.bat"
+
+rem ---- Qt via QT_ROOT_DIR; Inno Setup 6 via ISCC_EXE (override) or default path ----
+if defined QT_ROOT_DIR goto :have_qt
+echo [ERROR] QT_ROOT_DIR is not set. Point it to your Qt msvc directory, e.g.
+echo         setx QT_ROOT_DIR "C:\Qt\6.8.0\msvc2022_64"
+exit /b 1
+:have_qt
+set "QT_BIN=%QT_ROOT_DIR%\bin"
+if exist "%QT_BIN%\windeployqt.exe" goto :have_qtbin
+echo [ERROR] windeployqt.exe not found under QT_ROOT_DIR: %QT_BIN%
+exit /b 1
+:have_qtbin
+if defined ISCC_EXE goto :have_iscc
+set "ISCC_EXE=%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
+:have_iscc
+if exist "%ISCC_EXE%" goto :have_tools
+echo [ERROR] ISCC.exe not found: %ISCC_EXE% (install Inno Setup 6 or set ISCC_EXE)
+exit /b 1
+:have_tools
+
 set "ROOT=%~dp0.."
 set "DEPLOY=%ROOT%\build\deploy"
 
@@ -46,10 +79,12 @@ if exist "%DEPLOY%\tls" rmdir /s /q "%DEPLOY%\tls"
 rem open-source licenses ride in the deploy tree so the installer and the
 rem portable zip share one source of truth (iss packs the whole tree)
 xcopy /e /i /y "licenses" "%DEPLOY%\licenses" >nul || exit /b 1
+rem GPLv3 copy obligation: the license text itself must ship with binaries
+copy /y "LICENSE" "%DEPLOY%\LICENSE" >nul || exit /b 1
 
 rem ---- 3) installer ----
 echo [package] Inno Setup compile...
-"%ISCC%" "packaging\framext.iss" || exit /b 1
+"%ISCC_EXE%" "packaging\framext.iss" || exit /b 1
 
 rem ---- 4) portable zip: deploy tree + marker + readme ----
 rem marker file routes app data to <exeDir>\Data at runtime (core/AppPaths)

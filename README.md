@@ -5,6 +5,8 @@
 
 以 GPLv3+ 开源。当前 2.x 为 Qt C++ 版，前身为 1.x Flutter 版（见[架构沿革](#架构沿革原版-flutter-1x)）。
 
+![FrameXT 主界面](assets/main-window.jpg)
+
 ## 功能特性
 
 - **品牌识别**：读取照片 EXIF，自动匹配内置相机品牌 Logo（Canon / Nikon / Sony /
@@ -19,6 +21,12 @@
 - **导出**：JPEG 质量可调，批量处理
 - **多语言**：简体中文（默认）/ 繁体中文 / English
 - **双发行**：Inno Setup 安装包 + 免安装便携版（设置与用户数据随程序目录携带）
+
+## 效果示例
+
+| 底部边框 · Nikon Z 6_2 | 高斯模糊 · Sony A7 II | 底部边框 · Fujifilm X100F |
+|---|---|---|
+| ![](assets/sample-bottom-nikon.jpg) | ![](assets/sample-blur.jpg) | ![](assets/sample-bottom-fuji.jpg) |
 
 ## 技术架构
 
@@ -50,12 +58,18 @@ QPainter 自绘，元数据改用 exiv2，不再依赖 Go 运行时与 libvips�
 
 ## 构建（Windows）
 
-依赖：Qt 6（msvc2022_64 组件）、Visual Studio 2022（x64 工具链）、CMake ≥3.24 +
-Ninja、vcpkg（manifest 模式，首次配置自动安装 exiv2 / libjpeg-turbo，需设置
-`VCPKG_ROOT` 环境变量）。
+依赖：Qt 6（msvc2022_64 组件）、Visual Studio 2022（「使用 C++ 的桌面开发」工作负载，
+构建脚本经 vswhere 自动定位）、CMake ≥3.24 + Ninja（VS 开发者命令行自带）、vcpkg
+（manifest 模式，首次配置自动安装 exiv2 / libjpeg-turbo）。
 
-`CMakePresets.json` 中 Qt / Ninja / vcpkg 路径为开发机配置，请按自己的环境改写，
-或建 `CMakeUserPresets.json`（git 忽略）继承覆盖。在 VS2022 开发者命令行（x64）执行：
+需设置两个环境变量（`setx` 一次即可，重开终端生效）：
+
+```bat
+setx QT_ROOT_DIR "C:\Qt\6.8.0\msvc2022_64"
+setx VCPKG_ROOT "C:\vcpkg"
+```
+
+在 VS2022 开发者命令行（x64）执行：
 
 ```powershell
 cmake --preset win-debug
@@ -67,7 +81,9 @@ ctest --preset win-debug
 
 ## 打包（Windows）
 
-在 VS2022 开发者命令行（x64）中执行 `scripts\package-win.bat`，一次产出两种发行物（`dist/`）：
+在 VS2022 开发者命令行（x64）中执行 `scripts\package-win.bat`，一次产出两种发行物（`dist/`）。
+脚本自动探测 VS（vswhere）与 Inno Setup 6（默认安装路径，可用环境变量 `ISCC_EXE` 覆盖），
+Qt 路径复用 `QT_ROOT_DIR`：
 
 | 产物 | 说明 |
 |---|---|

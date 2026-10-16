@@ -1,16 +1,34 @@
 @echo off
-rem FrameXT local build: VS2022 x64 env + CMake Presets (win-debug)
-rem Usage: scripts\build-win.bat [configure|build|test|all]  (default: all)
+rem FrameXT local build: VS x64 env + CMake Presets (win-debug)
+rem Usage: scripts\build-win.bat [configure|build|test|all|release]  (default: all)
+rem Requires: VS2022 (C++ workload, auto-located via vswhere), env QT_ROOT_DIR,
+rem env VCPKG_ROOT (see README). Ninja comes from the VS developer environment.
 rem NOTE: keep this file ASCII-only (cmd.exe parses batch in legacy codepage)
 setlocal
-set "VS_VCVARS=D:\MyApp\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat"
+
+rem ---- locate Visual Studio via vswhere (ships with the VS installer) ----
+rem NOTE: no parenthesized blocks below -- variables containing "(x86)" in
+rem their expansion would terminate the block early when echoed inside it.
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+if not exist "%VSWHERE%" goto :no_vswhere
+for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_ROOT=%%i"
+if defined VS_ROOT goto :have_vs
+echo [ERROR] No Visual Studio with C++ x64 tools found (vswhere)
+exit /b 1
+:no_vswhere
+echo [ERROR] vswhere.exe not found. Install Visual Studio 2022 with the
+echo         "Desktop development with C++" workload.
+exit /b 1
+:have_vs
+set "VS_VCVARS=%VS_ROOT%\VC\Auxiliary\Build\vcvarsall.bat"
+
 set "ROOT=%~dp0.."
 
 call "%VS_VCVARS%" x64 >nul 2>&1
-if errorlevel 1 (
-    echo [ERROR] Cannot load VS2022 x64 env: %VS_VCVARS%
-    exit /b 1
-)
+if not errorlevel 1 goto :vcvars_ok
+echo [ERROR] Cannot load VS x64 env: %VS_VCVARS%
+exit /b 1
+:vcvars_ok
 
 cd /d "%ROOT%"
 set "STEP=%~1"

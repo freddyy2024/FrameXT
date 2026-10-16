@@ -19,3 +19,8 @@ Thumbs.db
 # packaging output (M6.1)
 dist/
 RCa*
+# 内部工作文档（不随开源仓库发布）
+docs/
+
+# 本机 CMake 预设覆盖（可选）
+CMakeUserPresets.json
