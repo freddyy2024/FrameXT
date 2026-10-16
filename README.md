@@ -28,6 +28,17 @@
 |---|---|---|
 | ![](assets/sample-bottom-nikon.jpg) | ![](assets/sample-blur.jpg) | ![](assets/sample-bottom-fuji.jpg) |
 
+## 模板定制
+
+模板由 JSON 文件描述，布局全部采用相对单位（信息带高度、字号、Logo 高度均为画布尺寸的
+比例），自动适配任意分辨率与宽高比。
+
+- **自己动手**：无需编程——在「模板管理」中复制内置模板调整参数，或导入 / 导出
+  `.ftpl` 模板文件分享给他人
+- **求助于维护者**：希望新增一种内置版式？欢迎将效果图与想法发送至
+  [yfreddy2021@gmail.com](mailto:yfreddy2021@gmail.com)，合适的话会将其制作
+  为内置模板随软件分发
+
 ## 技术架构
 
 C++20 / Qt 6（Widgets）/ CMake + Ninja / vcpkg（exiv2、libjpeg-turbo）。
