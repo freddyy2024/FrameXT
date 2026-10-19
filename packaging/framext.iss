@@ -5,7 +5,7 @@
 ; 注：本文件 UTF-8 with BOM（中文向导文本必需）。
 
 #define MyAppName "FrameXT"
-#define MyAppVersion "2.0.1"
+#define MyAppVersion "2.0.2"
 #define MyAppPublisher "FrameXT"
 #define MyAppExeName "framext.exe"
 #define MyAppHome "https://framext.com"

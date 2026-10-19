@@ -68,6 +68,11 @@ ImportItem importOne(const QString &path)
             raw.contains(QStringLiteral("Exif.GPSInfo.GPSLatitude"));
         // ICC 全字节（跨格式导出重建路径的保真材料，评审 A3）
         item.doc.meta.iccProfile = reader.iccProfile();
+    } else {
+        // 读取失败必须留痕（2.0.1 曾静默吞掉 exiv2 错误，用户端无从排查）：
+        // 无水印照片合法、不阻塞导入，但错误要走 stderr 可诊断
+        qWarning("Exif 读取失败（不阻塞导入）：%s -> %s",
+                 qUtf8Printable(path), qUtf8Printable(reader.error()));
     }
     // Exif 缺失不阻塞导入（无水印照片合法）；默认模板状态每张独立持有（§4.1）
     const auto spec = BuiltinTemplates::defaultSpec(QStringLiteral("bottom"));

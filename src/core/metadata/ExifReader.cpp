@@ -74,9 +74,13 @@ bool ExifReader::read()
     m_raw.clear();
     m_error.clear();
     try {
-        // 0.28：open 返回 UniquePtr；异常路径统一 Exiv2::Error（std::exception）
+        // 0.28：open 返回 UniquePtr；异常路径统一 Exiv2::Error（std::exception）。
+        // 路径必须 toLocal8Bit：vcpkg 的 exiv2 是 ANSI 构建（open 无 std::wstring
+        // 重载），按系统本地码页（GBK）解释路径；UTF-8 的 toStdString 在含中文
+        // 的目录（用户名/桌面/微信下载等）下打不开文件——图片走 Qt 原生 Unicode
+        // 不受影响，故表现为"图片正常但 EXIF 全空"（2.0.1 实测踩坑，勿回退）。
         Exiv2::Image::UniquePtr image = Exiv2::ImageFactory::open(
-            m_filePath.toStdString());
+            m_filePath.toLocal8Bit().toStdString());
         if (image.get() == nullptr) {
             m_error = QStringLiteral("exiv2 无法识别文件：%1").arg(m_filePath);
             return false;
