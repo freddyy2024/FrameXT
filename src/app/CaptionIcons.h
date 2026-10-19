@@ -47,7 +47,9 @@ inline QPixmap glyphPixmap(Glyph g, const QColor &color, qreal dpr)
     };
     switch (g) {
     case Glyph::Minimize:
-        line(2.5, 8.5, 9.5, 8.5);
+        // 横线置于视觉中心（12 格网格 y=7）：Segoe 字形按字体基线偏下，
+        // 自绘无基线概念，照搬会显得贴底（2.0.2 复测反馈）
+        line(2.5, 7, 9.5, 7);
         break;
     case Glyph::Maximize:
         p.drawRect(QRectF(2.5, 2.5, 7, 7));
@@ -82,13 +84,17 @@ inline QPixmap glyphPixmap(Glyph g, const QColor &color, qreal dpr)
         break;
     }
     case Glyph::Undo: {
-        // 3/4 圆弧（开口右下）+ 左上箭头（视觉近似 Segoe E7A7 回转箭头）
-        QPainterPath arc;
-        arc.arcTo(QRectF(2.4, 3.4, 7.2, 7.2), -45, 270);
-        p.drawPath(arc);
-        p.setBrush(color);
-        p.setPen(Qt::NoPen);
-        p.drawPolygon(QPolygonF { { 0.6, 3.0 }, { 4.2, 2.2 }, { 2.8, 5.6 } });
+        // 经典回转箭头（Lucide undo-2 同构）：左侧向左箭头 ◄—，
+        // 主干向右延伸后经右侧半圆下弯、末段向左回勾——比 Segoe E7A7
+        // 的孤立弧线在小尺寸下更易辨认（2.0.2 复测反馈：原稿看不清）
+        p.drawPolyline(QVector<QPointF> { { 4.4, 2.0 }, { 1.6, 4.8 },
+                                          { 4.4, 7.6 } });
+        QPainterPath path;
+        path.moveTo(1.6, 4.8);
+        path.lineTo(6.9, 4.8);
+        path.arcTo(QRectF(4.4, 4.8, 5.0, 5.0), 90, -180);   // 顶部经右侧到底部
+        path.lineTo(5.2, 9.8);
+        p.drawPath(path);
         break;
     }
     case Glyph::FitPage:
