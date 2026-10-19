@@ -14,6 +14,8 @@ qt_add_executable(framext WIN32
     "${CMAKE_CURRENT_BINARY_DIR}/app.rc"
     MainWindow.h MainWindow.cpp
     TitleBar.h TitleBar.cpp
+    CaptionIcons.h
+    GlyphButton.h
     TemplateManagerDialog.h TemplateManagerDialog.cpp
     Theme.h
     controllers/ProjectController.h controllers/ProjectController.cpp

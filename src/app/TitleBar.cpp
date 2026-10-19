@@ -17,12 +17,15 @@ constexpr int kBarHeight = 40;
 constexpr int kCaptionButtonWidth = 46;
 constexpr int kLogoSize = 22;
 
-// Segoe 图标字形：最小化 / 最大化 / 还原 / 关闭 / 眼睛（与系统标题按钮同源字形）
-constexpr char16_t kGlyphMinimize = 0xE921;
-constexpr char16_t kGlyphMaximize = 0xE922;
-constexpr char16_t kGlyphRestore  = 0xE923;
-constexpr char16_t kGlyphClose    = 0xE8BB;
-constexpr char16_t kGlyphEye      = 0xE7B3;   // RedEye/View 图标
+// Segoe 图标字体（Fluent Icons / MDL2 Assets）在精简版 Windows 上缺失，
+// 窗口按钮已改自绘矢量图标（CaptionIcons.h），原字形常量随之移除。
+
+// 标题按钮图标色（与 theme-light.qss 的 caption* color 同源）：
+// 普通 #5A6068；悬停默认加深 #1F2329（关闭钮悬停红底，调用处传白色）
+QIcon captionIcon(fxt::Glyph g, const QColor &hover)
+{
+    return fxt::glyphIcon(g, QColor(QStringLiteral("#5A6068")), hover);
+}
 
 // 语言菜单项（3.9）：按钮与菜单统一用语言自称（endonym），不参与翻译——
 // 否则非中文环境下按钮永远显示「中文」/「Chinese」，无法辨认当前语言
@@ -31,15 +34,6 @@ const QList<QPair<QString, QString>> kLanguages = {
     { QStringLiteral("繁體中文"), QStringLiteral("zh-TW") },
     { QStringLiteral("English"), QStringLiteral("en") },
 };
-
-QFont captionGlyphFont()
-{
-    QFont font;
-    font.setFamilies({ QStringLiteral("Segoe Fluent Icons"),      // Win11
-                       QStringLiteral("Segoe MDL2 Assets") });    // Win10 回退
-    font.setPointSize(9);
-    return font;
-}
 
 } // namespace
 
@@ -71,8 +65,8 @@ TitleBar::TitleBar(QWidget *parent)
 
     // 关于入口（用户指令：从导入导出面板移至标题栏，ⓘ 与标题按钮同规格）
     auto *aboutButton = createCaptionButton(QStringLiteral("captionAbout"),
-                                            QString(QChar(0xE946)),   // Info
-                                            tr("关于 FrameXT"));
+                                            Glyph::Info, tr("关于 FrameXT"),
+                                            QColor(QStringLiteral("#1F2329")));
     connect(aboutButton, &QToolButton::clicked, this,
             &TitleBar::aboutRequested);
     layout->addWidget(aboutButton);
@@ -101,19 +95,23 @@ TitleBar::TitleBar(QWidget *parent)
 
     // 纯看图开关（👁，§3.4 第三态入口）：点击切换水印显隐
     m_eyeButton = createCaptionButton(QStringLiteral("captionEye"),
-                                      QString(QChar(kGlyphEye)),
-                                      tr("纯看图（隐藏水印）"));
+                                      Glyph::Eye,
+                                      tr("纯看图（隐藏水印）"),
+                                      QColor(QStringLiteral("#1F2329")));
     m_eyeButton->setCheckable(true);
     connect(m_eyeButton, &QToolButton::toggled, this,
             &TitleBar::watermarkEyeToggled);
     layout->addWidget(m_eyeButton);
 
     m_minButton = createCaptionButton(QStringLiteral("captionMin"),
-                                      QString(QChar(kGlyphMinimize)), tr("最小化"));
+                                      Glyph::Minimize, tr("最小化"),
+                                      QColor(QStringLiteral("#1F2329")));
     m_maxButton = createCaptionButton(QStringLiteral("captionMax"),
-                                      QString(QChar(kGlyphMaximize)), tr("最大化"));
+                                      Glyph::Maximize, tr("最大化"),
+                                      QColor(QStringLiteral("#1F2329")));
     m_closeButton = createCaptionButton(QStringLiteral("captionClose"),
-                                        QString(QChar(kGlyphClose)), tr("关闭"));
+                                        Glyph::Close, tr("关闭"),
+                                        QColor(QStringLiteral("#FFFFFF")));
     connect(m_minButton, &QToolButton::clicked, this, &TitleBar::minimizeClicked);
     connect(m_maxButton, &QToolButton::clicked, this, &TitleBar::maximizeClicked);
     connect(m_closeButton, &QToolButton::clicked, this, &TitleBar::closeClicked);
@@ -159,7 +157,8 @@ void TitleBar::updateEyeEnabled(bool enabled)
 
 void TitleBar::updateMaximizeButton(bool maximized)
 {
-    m_maxButton->setText(QString(QChar(maximized ? kGlyphRestore : kGlyphMaximize)));
+    m_maxButton->setIcon(captionIcon(maximized ? Glyph::Restore : Glyph::Maximize,
+                                     QColor(QStringLiteral("#1F2329"))));
     m_maxButton->setToolTip(maximized ? tr("向下还原") : tr("最大化"));
 }
 
@@ -252,13 +251,14 @@ QPixmap TitleBar::logoPixmap() const
 }
 
 QToolButton *TitleBar::createCaptionButton(const QString &objectName,
-                                           const QString &glyph,
-                                           const QString &tooltip)
+                                           Glyph glyph,
+                                           const QString &tooltip,
+                                           const QColor &hoverColor)
 {
     auto *button = new QToolButton(this);
     button->setObjectName(objectName);
-    button->setText(glyph);
-    button->setFont(captionGlyphFont());
+    button->setIcon(captionIcon(glyph, hoverColor));
+    button->setIconSize(QSize(12, 12));
     button->setToolTip(tooltip);
     button->setFixedSize(kCaptionButtonWidth, kBarHeight);
     button->setFocusPolicy(Qt::NoFocus);

@@ -1,5 +1,8 @@
 #pragma once
 
+#include "CaptionIcons.h"
+
+#include <QColor>
 #include <QWidget>
 
 class QLabel;
@@ -51,9 +54,12 @@ protected:
 
 private:
     QPixmap logoPixmap() const;
+    // 窗口标题按钮：图标为自绘矢量（CaptionIcons），hoverColor 对应各按钮
+    // QSS 悬停态下的图标色（关闭钮悬停红底，传白色）
     QToolButton *createCaptionButton(const QString &objectName,
-                                     const QString &glyph,
-                                     const QString &tooltip);
+                                     Glyph glyph,
+                                     const QString &tooltip,
+                                     const QColor &hoverColor);
 
     QLabel *m_logoLabel = nullptr;
     QLabel *m_titleLabel = nullptr;
